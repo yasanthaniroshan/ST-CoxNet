@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 
 import numpy as np
 
@@ -26,6 +26,23 @@ def build_index(
             index.append((rid, start))
 
     return index
+
+def build_csv_index(
+    records : Dict[str, Dict],
+    seq_len :int, 
+    horizons: List[int],
+)-> List[Tuple[str, int]]:
+    
+    index = []
+    max_horizon = max(horizons)
+
+    for seg_name, record in records.items():
+        n_winows = len(record["keys"])
+        max_start = n_winows - seq_len - max_horizon + 1
+        for start in range(0, max_start + 1):
+            index.append((seg_name, start))
+    return index
+
 
 
 def build_rr_windows(

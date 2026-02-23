@@ -11,6 +11,10 @@ class FileLoaderMetadata(BaseModel):
     sampling_rate: Optional[int] = None
     file_names : Optional[List[str]] = None
 
+class CSVLoaderMetadata(BaseModel):
+    rri_csv_path: str
+    features_csv_path: str
+
 class RRSequenceMetadata(BaseModel):
     window_size: int
     stride: int

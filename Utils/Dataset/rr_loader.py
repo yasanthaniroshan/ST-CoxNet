@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from typing import List, Tuple
+from pandas import pd
+from typing import Dict, List, Tuple
 
 import numpy as np
 
-from Metadata import FileLoaderMetadata
+from Metadata import CSVLoaderMetadata, FileLoaderMetadata
 from Utils.Loader.FileLoader import FileLoader
 
 
@@ -29,4 +30,32 @@ def load_rr_records(
         pid += 1
 
     return rr_records, patient_ids
+
+def load_csv_records(
+    csv_loader_metadata: CSVLoaderMetadata
+) -> Dict[str, Dict]:
+    rri_df = pd.read_csv(csv_loader_metadata.rri_csv_path)
+    features_df = pd.read_csv(csv_loader_metadata.features_csv_path)
+
+    rri_cols = [col for col in rri_df.columns if col.startswith("rri_")]
+    meta_cols = ["Segment_Name", "start_idx", "end_idx"]
+    feature_cols = [col for col in features_df.columns if col not in meta_cols]
+
+    merged = pd.merge(
+        rri_df[meta_cols + rri_cols], 
+        features_df[meta_cols + feature_cols], 
+        on=meta_cols)
+    
+    records = {}
+
+    for seg_name, group in merged.groupby("Segment_Name"):
+        group = group.sort_values("start_idx").reset_index(drop=True)
+        records[seg_name] = {
+            "rri" : group[rri_cols].values.astype(np.float32),
+            "hrv": group[feature_cols].values.astype(np.float32), 
+            "keys": list(zip(group["start_idx"], group["end_idx"])), 
+            "feature_names": feature_cols,
+        }
+    return records
+
 
