@@ -17,7 +17,7 @@ class DatasetLoader(ABC):
         Args:
             dataset_name: Name of the dataset (e.g., 'afdb')
             search_paths: List of paths to search for local data
-            data_path: Path to local MIT-AFDB data
+            data_path: Path to local dataset
             use_physionet: If True, download from PhysioNet when needed
         """
         self.dataset_name = dataset_name
@@ -77,13 +77,13 @@ class DatasetLoader(ABC):
         # Try PhysioNet
         if self.use_physionet:
             try:
-                record = wfdb.rdrecord(record_id, pn_dir='afdb')
-                annotation = wfdb.rdann(record_id, 'atr', pn_dir='afdb')
+                record = wfdb.rdrecord(record_id, pn_dir= self.dataset_name)
+                annotation = wfdb.rdann(record_id, 'atr', pn_dir=self.dataset_name)
                 return record, annotation
             except:
                 try:
-                    record = wfdb.rdrecord(f'afdb/{record_id}')
-                    annotation = wfdb.rdann(f'afdb/{record_id}', 'atr')
+                    record = wfdb.rdrecord(f'{self.dataset_name}/{record_id}')
+                    annotation = wfdb.rdann(f'{self.dataset_name}/{record_id}', 'atr')
                     return record, annotation
                 except Exception as e:
                     print(f"Failed loading the record from physionet {record_id}: {e}")
@@ -104,11 +104,11 @@ class DatasetLoader(ABC):
         # Try PhysioNet
         if self.use_physionet:
             try:
-                qrs_ann = wfdb.rdann(record_id, 'qrs', pn_dir='afdb')
+                qrs_ann = wfdb.rdann(record_id, 'qrs', pn_dir=self.dataset_name)
                 return qrs_ann
             except:
                 try:
-                    qrs_ann = wfdb.rdann(f'afdb/{record_id}', 'qrs')
+                    qrs_ann = wfdb.rdann(f'{self.dataset_name}/{record_id}', 'qrs')
                     return qrs_ann
                 except Exception as e:
                     print(f"    Failed loading .qrs in physionet {record_id}: {e}")

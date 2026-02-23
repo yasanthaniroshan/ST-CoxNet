@@ -127,7 +127,7 @@ class AFExtractor:
         qrs_ann.wrann(write_dir=self.OUTPUT_DIR)
 
     def save_rhythm_annotation(self, af_start_sample: int, af_end_sample: int,
-                               total_samples: int, record_name: str, fs: int):
+                               total_samples: int, record_name: str):
         """Create and save rhythm annotation (.atr) marking SR and AF regions"""
 
         # Create annotation samples and symbols

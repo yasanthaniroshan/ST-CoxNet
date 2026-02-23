@@ -10,7 +10,7 @@ search_paths = [
 from typing import Optional
 import wfdb
 
-from Utils.Dataset.DatasetlLoader import DatasetLoader
+from Utils.Dataset.DatasetLoader import DatasetLoader
 
 class AFDBDatasetLoader(DatasetLoader):
     def __init__(self, 
