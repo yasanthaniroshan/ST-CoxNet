@@ -1,6 +1,7 @@
 from Utils.Dataset.AFDB import AFDBDatasetLoader
 from Utils.Dataset.AFExtractor import AFExtractor
 from Utils.Dataset.SegmentExtractor import SegmentExtractor
+from Utils.FeatureExtractor.HRVMetrics.HRVFeatures import HRVFeatures
 import pandas as pd
 import numpy as np
 
@@ -32,6 +33,7 @@ segment_extractor = SegmentExtractor(
     extraction_report_path=OUPUT_DIR + '/EXTRACTION_REPORT.csv'
 )
 rri_csv = []
+features_csv = []
 
 for segment_name in segment_names:
     preaf_ecg, preaf_meta = segment_extractor.extract_preaf_data(segment_name)
@@ -42,6 +44,8 @@ for segment_name in segment_names:
     seg_rri = segment_extractor.segment_rr_windows_rri(rr_intervals, 
                                                        window_size_beats=50, 
                                                        stride_beats=10)
+    
+
     # Write 50 rri to the csv file
     for (start_idx, end_idx), rri_window in seg_rri.items():
         row = {
@@ -50,10 +54,32 @@ for segment_name in segment_names:
             "end_idx" : end_idx,
         }
 
+        features_row = {
+            "Segment_Name": segment_name,
+            "start_idx" : start_idx,
+            "end_idx" : end_idx,
+        }
+
         for i, rri in enumerate(rri_window):
             row[f"rri_{i}"] = rri
+        
+        rri_ms  = np.array(rri_window) * 1000 
+        # Time Resolution of RRI is in miliseconds, so fs is set 1000
+        hrv_extractor = HRVFeatures(data=rri_ms, fs=1000, rri_given=True)
+        features = hrv_extractor.compute_all()
+
+        for feature_name, feature_value in features.items():
+            features_row[feature_name] = feature_value
 
         rri_csv.append(row)
-    
+        features_csv.append(features_row)
+
+# Save the RRI windows to a CSV file
+rri_df = pd.DataFrame(rri_csv)
+rri_df.to_csv(OUPUT_DIR + '/rri_windows.csv', index=False)
+
+# Save the HRV features to a CSV file
+features_df = pd.DataFrame(features_csv)
+features_df.to_csv(OUPUT_DIR + '/hrv_features.csv', index=False)
     
 
