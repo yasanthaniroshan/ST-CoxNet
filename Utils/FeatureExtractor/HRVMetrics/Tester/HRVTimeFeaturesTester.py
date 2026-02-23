@@ -34,7 +34,7 @@ r_peaks = peaks["ECG_R_Peaks"].values
 peak_indices = np.where(r_peaks == 1)[0]
 print(f"R-peak indices: {peak_indices} ")
 rri = np.diff(peak_indices) * 1000 / 100 # Convert to miliseconds (assuming fs=100Hz)
-print(f"RR intervals (s): {rri}")
+print(f"RR intervals (ms): {rri}")
 hrv_time_features = HRVFeatures(rri, fs=100, rri_given=True)
 features = hrv_time_features.compute_all()
 print("\nExtracted HRV Features:")
