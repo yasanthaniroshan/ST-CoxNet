@@ -1,33 +1,20 @@
 import random
-
-import hydra
 import wandb
+import hydra
 import torch
-import random
-import numpy as np
-import os
+from omegaconf import DictConfig
 
-from hydra.utils import instantiate
-from torch.utils.data import DataLoader
-from omegaconf import DictConfig, OmegaConf
+from Utils.Logger import get_logger
+from Utils.Pipeline import build_pipeline
+from omegaconf import OmegaConf
 from dotenv import load_dotenv
 from tqdm import tqdm
+import warnings
+import logging
 
-from Utils.Dataset.Splitter import split
-from Utils.Dataset.RRSequenceDataset import RRSequenceDataset
-from Utils.Logger import get_logger
-from Utils.Visualizer.RegresssionPlotter import RegressionPlotter
-
-from Metadata import SplitMetadata,FileLoaderMetadata
-
-from Train import Trainer
-from Validator import Validator
-from Device import Device
-
-from Utils.Logger import get_logger
-from pipeline import build_pipeline
-
-load_dotenv()
+warnings.filterwarnings('default')
+logging.captureWarnings(True)
+load_dotenv()  # Load environment variables from .env file
 
 @hydra.main(config_path="conf", config_name="conf", version_base=None)
 def main(cfg: DictConfig):
@@ -36,69 +23,44 @@ def main(cfg: DictConfig):
     """
     random.seed(cfg.seed)
     torch.manual_seed(cfg.seed)
-
-    logger = get_logger()
-    pipeline = build_pipeline(cfg, logger=logger)
-    trainer = pipeline.trainer
     try:
+        wandb.login()
+        run = wandb.init(
+            entity="eml-labs",
+            project="PAF Prediction - CPC",
+            config=OmegaConf.to_container(cfg, resolve=True),
+            name=f"CPCPreModel_Run_{wandb.util.generate_id()}",
+            tags=["CPCPreModel", "Experiment"]
+        )
 
-        logger.info(f"Files are split into Train: {len(train_files)}, Val: {len(val_files)}, Test: {len(test_files)} | Total: {len(file_loader.file_names)}")
-
-        train_file_loader_metadata = file_loader.model_copy(update={"file_names": train_files})
-        val_file_loader_metadata = file_loader.model_copy(update={"file_names": val_files})
-        test_file_loader_metadata = file_loader.model_copy(update={"file_names": test_files})
-
-        sampling_rate = cfg.dataset.sampling_rate
-        rr_sequence_config = instantiate(cfg.preprocessing.rr_sequence)
-        feature_extractors_config = instantiate(cfg.feature_extractors)
-
-        train_dataset = RRSequenceDataset(sampling_rate, rr_sequence_config, train_file_loader_metadata, feature_extractors_config)
-        val_dataset = RRSequenceDataset(sampling_rate, rr_sequence_config, val_file_loader_metadata, feature_extractors_config)
-        test_dataset = RRSequenceDataset(sampling_rate, rr_sequence_config, test_file_loader_metadata, feature_extractors_config)
-
-        logger.info(f"Datasets created with lengths - Train: {len(train_dataset)}, Val: {len(val_dataset)}, Test: {len(test_dataset)}")
-
-        train_loader = DataLoader(train_dataset, **cfg.trainer.loader)
-        val_loader = DataLoader(val_dataset, **cfg.validator.loader)
-        # test_loader = DataLoader(test_dataset, **cfg.tester.loader)
-
-        first_stage_model:torch.nn.Module = instantiate(cfg.first_stage_model)
-
-        logger.info(f"Model instantiated: {first_stage_model.__class__.__name__}")
-
-        first_stage_model.eval()
-        device:torch.device = instantiate(cfg.device).device
-        optimizer:torch.optim = instantiate(cfg.trainer.optimizer, params=first_stage_model.parameters())
-        loss_fn :torch.nn.Module = instantiate(cfg.trainer.loss)
-        trainer = Trainer(first_stage_model, optimizer, device, loss_fn, number_of_predictors=cfg.first_stage_model.config.predictor.num_heads, loss_weights=cfg.trainer.loss_weights)
-        validator = Validator(first_stage_model, device, loss_fn, number_of_predictors=cfg.first_stage_model.config.predictor.num_heads)
-        plotter:RegressionPlotter = instantiate(cfg.plotters)
-        
+        logger = get_logger(run=run)    
+        pipeline = build_pipeline(cfg, logger=logger)
+        trainer = pipeline.trainer
         pbar = tqdm(range(cfg.trainer.epochs), desc="Training Epochs")
         for epoch in pbar:
-            avg_loss, avg_losses = trainer.train_epoch(train_loader)
-            val_avg_loss, val_avg_losses = validator.validation_epoch(val_loader)
-            plotter.update(validator.predictions, validator.targets)
-            pbar.set_description_str(f"Epoch {epoch+1}/{cfg.trainer.epochs} | Train Loss: {avg_loss:.4f} | Val Loss: {val_avg_loss:.4f}")
-            logger.log({"train_loss": avg_loss, **{f"train_loss_pred_{i}": l for i, l in enumerate(avg_losses)}, "val_loss": val_avg_loss, **{f"val_loss_pred_{i}": l for i, l in enumerate(val_avg_losses)}, "epoch": epoch+1})
-            logger.info(f"Epoch {epoch+1}, Total Train Loss: {avg_loss:.4f}, Total Val Loss: {val_avg_loss:.4f}")
-            fig = plotter.plot()
-            logger.log({"regression_plot": wandb.Image(fig)})
+            avg_loss, avg_losses = trainer.train_epoch(pipeline.train_loader)
+            pbar_dict = {
+                "Epoch": epoch + 1,
+                "Total Loss": avg_loss,
+                **{f"Pred {i}": l for i, l in enumerate(avg_losses)}
+            }
+            pbar.set_postfix(pbar_dict)
+            logger.log(pbar_dict)
+    except KeyboardInterrupt:
+        logger.info("Training interrupted by user.")
     except Exception as e:
-        logger.info("Model saved successfully")
-        if logger is not None:
-            logger.info(f"An error occurred: {str(e)}")
-        raise e
+        logger.error(f"An error occurred: {e}")
     finally:
-        if first_stage_model is not None:
-            torch.save(first_stage_model.state_dict(), "first_stage_model.pt")
-            artifact = wandb.Artifact("CPCPreModel", type="model")
-            file_path = os.path.join(os.getcwd(), "first_stage_model.pt")
-            artifact.add_file(file_path)
-            run.log_artifact(artifact)
-        if run is not None:
+        torch.save(pipeline.model.state_dict(), "first_stage_model.pth")
+        artifact = wandb.Artifact("first_stage_model", type="model")
+        artifact.add_file("first_stage_model.pth")
+        run.log_artifact(artifact)
+        if logger is not None:
+            logger.info("Model checkpoint saved and logged to WandB.")
+        if 'run' in locals():
             run.finish()
+        
+
 
 if __name__ == "__main__":
     main()
-

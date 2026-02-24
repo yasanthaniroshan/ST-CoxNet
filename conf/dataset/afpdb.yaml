@@ -1,0 +1,8 @@
+defaults:
+  - file_loader: default
+  - rr_sequence: default
+  - feature_extractors: default
+
+_target_: Utils.Dataset.RRSequenceCSVDataset.RRSequenceCSVDataset
+sampling_rate: 128
+

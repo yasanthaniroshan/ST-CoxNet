@@ -47,7 +47,7 @@ class Logger:
     def log(self, data: Dict, step: Optional[int] = None):
         if self.run is not None:
             self.run.log(data, step=step)
-        self.logger.info(str(data))
+        # self.logger.info(str(data))
 
     def info(self, message: str):
         self.logger.info(message)
