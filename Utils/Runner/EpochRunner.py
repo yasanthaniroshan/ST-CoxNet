@@ -32,7 +32,6 @@ class EpochRunner:
 
         c_seq = self.model(rr_windows)  # [B, T, context_dim]
         last_context = c_seq[:, -1, :]  # [B, context_dim]
-
         total_loss = torch.tensor(0.0, device=rr_windows.device)
         y_preds = self.model.predictor(last_context)
 
@@ -40,7 +39,7 @@ class EpochRunner:
             loss = self.loss(y_pred, hrv_targets[:, idx, :])
             losses.append(loss)
             total_loss = total_loss + weight * loss
-
+        
         return total_loss, tuple(losses)
     
     def _predict_multihead(self, rr_windows: torch.Tensor) -> Tuple[torch.Tensor, ...]:
@@ -82,6 +81,9 @@ class EpochRunner:
                     rr_windows=rr_windows,
                     hrv_targets=hrv_targets,
                 )
+                # print(f"Batch Loss: {total_loss.item():.4f} | " + " | ".join(
+                #     [f"Head {idx+1}: {l.item():.4f}" for idx, l in enumerate(losses)]
+                # ))
 
                 if is_train and optimizer is not None:
                     total_loss.backward()

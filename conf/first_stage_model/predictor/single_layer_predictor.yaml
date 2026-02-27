@@ -1,4 +1,4 @@
 _target_: Metadata.HRVPredictorConfig
 context_dim: 64
-num_targets: 5
+num_targets: 3
 num_heads: 3

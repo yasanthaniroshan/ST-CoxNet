@@ -48,7 +48,6 @@ def load_csv_records(
         rri_df[meta_cols + rri_cols], 
         features_df[meta_cols + feature_cols], 
         on=meta_cols)
-    
     records = {}
 
     for seg_name, group in merged.groupby("Segment_Name"):

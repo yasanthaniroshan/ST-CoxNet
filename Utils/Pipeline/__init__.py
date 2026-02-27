@@ -6,7 +6,9 @@ from typing import Optional, Dict, Any, Tuple
 import torch
 from hydra.utils import instantiate
 from omegaconf import DictConfig
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader,Subset
+import numpy as np
+from sklearn.preprocessing import StandardScaler
 
 from Device import Device
 from Metadata import SplitMetadata, FileLoaderMetadata
@@ -44,6 +46,15 @@ def _build_datasets_and_loaders(
     split_metadata = instantiate(cfg.split)
     train_records, val_records, test_records = split(csv_data.records, split_metadata=split_metadata)
 
+    train_hrv = np.vstack([rec["hrv"] for rec in train_records.values()])
+
+    scaler = StandardScaler()
+    scaler.fit(train_hrv)
+
+    for records in [train_records, val_records, test_records]:
+        for key in records:
+            records[key]["hrv"] = scaler.transform(records[key]["hrv"])
+
     if logger is not None:
         logger.info(
             f"Data is split into Train: {len(train_records)}, "
@@ -74,6 +85,7 @@ def _build_datasets_and_loaders(
             f"Train: {len(train_dataset)}, Val: {len(val_dataset)}, Test: {len(test_dataset)}"
         )
 
+    # train_dataset = Subset(train_dataset, range(min(100, len(train_dataset))))
     train_loader = DataLoader(train_dataset, **cfg.trainer.loader)
     val_loader = DataLoader(val_dataset, **cfg.validator.loader)
     test_loader: Optional[DataLoader] = None

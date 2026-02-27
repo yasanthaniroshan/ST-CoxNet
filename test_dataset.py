@@ -6,10 +6,11 @@ from Utils.Dataset.RRSequenceCSVDataset import RRSequenceCSVDataset
 from Utils.Dataset.Splitter import split
 from torch.utils.data import DataLoader
 import random
-from Metadata import FeatureType, SplitMetadata,RRCSVDataMetadata
+from Metadata import FeatureType, SplitMetadata,RRCSVDataMetadata,CPCPreModelConfig,EncoderConfig,ARBlockConfig,HRVPredictorConfig
+from Model.CPCPreModel import CPCPreModel
 
 features = [
-    FeatureType.LFHF,
+    # FeatureType.LFHF,
     FeatureType.RMSSD,
     FeatureType.Alpha1,
     FeatureType.SampleEntropy,
@@ -60,10 +61,25 @@ print(f"Val Dataset Size: {len(val_dataset)}")
 #     print(f"RRI Windows Shape: {rri_windows.shape}")
 #     print(f"Current HRV Shape: {current_hrv.shape}")
 #     print(f"Future HRVs Shape: {future_hrvs.shape}")
-
+model = CPCPreModel(
+    CPCPreModelConfig(
+        encoder=EncoderConfig(latent_dim=32),
+        ar=ARBlockConfig(latent_dim=32,context_dim=64),
+        predictor=HRVPredictorConfig(
+            context_dim=64,
+            num_targets=4,
+            num_heads=3
+        )
+    )
+)
 import torch
 for rr_windows, hrv_targets, _ in train_dataset:
     print(hrv_targets)
-    # if torch.isnan(hrv_targets).any():
-    #     print("NaNs in hrv_targets")
-    #     break
+    rr_windows = rr_windows.unsqueeze(0)  # Add batch dimension
+    hrv_targets = hrv_targets.unsqueeze(0)  # Add batch dimension
+    print(f"Input Shape: {rr_windows.shape}, Target Shape: {hrv_targets.shape}")
+    with torch.no_grad():
+        c_seq = model(rr_windows)
+        predictions = model.predictor(c_seq[:, -1, :])
+        print(predictions)
+    break

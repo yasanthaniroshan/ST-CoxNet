@@ -24,16 +24,16 @@ def main(cfg: DictConfig):
     random.seed(cfg.seed)
     torch.manual_seed(cfg.seed)
     try:
-        # wandb.login()
-        # run = wandb.init(
-        #     entity="eml-labs",
-        #     project="PAF Prediction - CPC",
-        #     config=OmegaConf.to_container(cfg, resolve=True),
-        #     name=f"CPCPreModel_Run_{wandb.util.generate_id()}",
-        #     tags=["CPCPreModel", "Experiment"]
-        # )
+        wandb.login()
+        run = wandb.init(
+            entity="eml-labs",
+            project="PAF Prediction - CPC",
+            config=OmegaConf.to_container(cfg, resolve=True),
+            name=f"CPCPreModel_Run_{wandb.util.generate_id()}",
+            tags=["CPCPreModel", "Experiment"]
+        )
 
-        logger = get_logger(run=None)    
+        logger = get_logger(run=run)    
         pipeline = build_pipeline(cfg, logger=logger)
         trainer = pipeline.trainer
         validator = pipeline.validator
@@ -46,8 +46,8 @@ def main(cfg: DictConfig):
                 "Epoch": epoch + 1,
                 "Total Loss": avg_loss,
                 "Total Val Loss": val_avg_loss,
-                **{f"Pred {i}": l for i, l in enumerate(avg_losses)},
-                **{f"Val Pred {i}": l for i, l in enumerate(val_avg_losses)}
+                **{f"Train loss {i}": l for i, l in enumerate(avg_losses)},
+                **{f"Val loss {i}": l for i, l in enumerate(val_avg_losses)}
             }
             pbar.set_postfix(pbar_dict)
             logger.log(pbar_dict)
