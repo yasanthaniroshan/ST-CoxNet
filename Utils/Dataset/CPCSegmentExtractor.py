@@ -27,7 +27,7 @@ warnings.simplefilter("ignore", category=RuntimeWarning)
 
 DATA_PATH = "Utils/Dataset/AFDB/physionet.org/files/afdb/1.0.0"
 OUPUT_DIR = "Utils/Dataset/AFDB/Extracted_Segments"
-CSV_DIR = "Utils/Dataset/AFDB/CSV_Files"
+CSV_DIR = "Utils/Dataset/AFDB/CSV_Files_3"
 
 # loader = AFDBDatasetLoader(
 #     data_path=DATA_PATH,
@@ -65,6 +65,16 @@ segment_extractor = SegmentExtractor(
 # Initialize CSV files 
 rri_csv_file = CSV_DIR + '/rri_windows.csv'
 features_csv_file = CSV_DIR + '/hrv_features.csv'
+
+# Clear existing CSV files before starting
+if os.path.exists(rri_csv_file):
+    os.remove(rri_csv_file)
+    print(f"Cleared existing {rri_csv_file}")
+
+if os.path.exists(features_csv_file):
+    os.remove(features_csv_file)
+    print(f"Cleared existing {features_csv_file}")
+
 first_write = True
 
 for batch_num in range(total_batches):
@@ -75,7 +85,7 @@ for batch_num in range(total_batches):
     print(f"Processing batch {batch_num + 1}/{total_batches}: segments {start_idx + 1}-{end_idx}")
     
     rri_csv = []
-    features_csv = []
+    # features_csv = []
 
     for segment_name in batch_segments:
         try:
@@ -86,7 +96,7 @@ for batch_num in range(total_batches):
             rr_intervals, beat_times = segment_extractor.get_rr_intervals(qrs_samples, fs)
             # Extract 50rri windows with stride of 10rri
             seg_rri = segment_extractor.segment_rr_windows_rri(rr_intervals, 
-                                                               window_size_beats=50, 
+                                                               window_size_beats=300, 
                                                                stride_beats=10)
     
 
@@ -98,32 +108,33 @@ for batch_num in range(total_batches):
                     "end_idx" : end_idx,
                 }
 
-                features_row = {
-                    "Segment_Name": segment_name,
-                    "start_idx" : start_idx,
-                    "end_idx" : end_idx,
-                }
+                # features_row = {
+                #     "Segment_Name": segment_name,
+                #     "start_idx" : start_idx,
+                #     "end_idx" : end_idx,
+                # }
 
                 for i, rri in enumerate(rri_window):
                     row[f"rri_{i}"] = rri
                 
-                rri_ms  = np.array(rri_window) * 1000 
-                # Time Resolution of RRI is in miliseconds, so fs is set 1000
-                hrv_extractor = HRVFeatures(data=rri_ms, fs=1000, rri_given=True)
-                features = hrv_extractor.compute_all()
+                # rri_ms  = np.array(rri_window) * 1000 
+                # Trying AFDB sampled at 250Hz.
+                # hrv_extractor = HRVFeatures(data=rri_ms, fs=250, rri_given=True)
+                # features = hrv_extractor.compute_all()
 
-                for feature_name, feature_value in features.items():
-                    features_row[feature_name] = feature_value
+                # for feature_name, feature_value in features.items():
+                #     features_row[feature_name] = feature_value
 
                 rri_csv.append(row)
-                features_csv.append(features_row)
+                # features_csv.append(features_row)
                 
         except Exception as e:
             print(f"    Error processing {segment_name}: {e}")
             continue
     
     # Save batch results
-    if rri_csv and features_csv:
+    # if rri_csv and features_csv:
+    if rri_csv:
         print(f"  Saving batch {batch_num + 1} results...")
         
         # Save RRI windows
@@ -131,19 +142,19 @@ for batch_num in range(total_batches):
         rri_df.to_csv(rri_csv_file, mode='a', header=first_write, index=False)
         
         # Save HRV features  
-        features_df = pd.DataFrame(features_csv)
-        features_df.to_csv(features_csv_file, mode='a', header=first_write, index=False)
+        # features_df = pd.DataFrame(features_csv)
+        # features_df.to_csv(features_csv_file, mode='a', header=first_write, index=False)
         
         first_write = False
         print(f"  Batch {batch_num + 1} completed: {len(rri_csv)} windows processed")
     
     # Clear memory
-    del rri_csv, features_csv
-    if 'rri_df' in locals():
-        del rri_df, features_df
+    # del rri_csv, features_csv
+    del rri_csv
+    # if 'rri_df' in locals():
+    #     del rri_df, features_df
 
 print(f"\n✓ Processing completed! Results saved to:")
 print(f"  - {rri_csv_file}")
-print(f"  - {features_csv_file}")
-    
+# print(f"  - {features_csv_file}")
 
