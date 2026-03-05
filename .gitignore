@@ -12,6 +12,8 @@ logs/
 wandb/
 *.pt
 *.png
+*.pdf
+*.csv
 
 # Ignore physionet.org data files
 Utils/Dataset/AFDB/physionet.org/
