@@ -1,10 +1,12 @@
 wandb==0.23.1
-wfdb==4.2.0
+wfdb>=4.3.0
 pydantic
-neurokit2
+neurokit2>=0.2.7
 PyYAML
 omegaconf
 hydra-core
 tqdm
 python-dotenv
 torch
+scikit-learn
+numpy<2.0.0
