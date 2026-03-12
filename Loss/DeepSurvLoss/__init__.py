@@ -3,7 +3,7 @@ import torch.nn as nn
 
 class DeepSurvLoss(nn.Module):
     def __init__(self):
-        super(DeepSurvLoss, self).init__()
+        super().__init__()
 
     def forward(self, log_h_pred, durations, events):
         """

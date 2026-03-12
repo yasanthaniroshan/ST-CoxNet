@@ -99,7 +99,7 @@ def build_pipeline(
     """
     train_loader, val_loader, test_loader, _ = _build_datasets_and_loaders(cfg, logger=logger)
 
-    model: torch.nn.Module = instantiate(cfg.model)
+    model: torch.nn.Module = instantiate(cfg.first_stage_model)
     if logger is not None:
         logger.info(f"Model instantiated: {model.__class__.__name__}")
 
@@ -114,7 +114,7 @@ def build_pipeline(
         optimizer,
         device,
         loss_fn,
-        number_of_predictors=cfg.model.config.predictor.num_heads,
+        number_of_predictors=cfg.first_stage_model.config.predictor.num_heads,
         loss_weights=cfg.trainer.loss_weights,
     )
 
@@ -124,7 +124,7 @@ def build_pipeline(
             model,
             device,
             loss_fn,
-            number_of_predictors=cfg.model.config.predictor.num_heads,
+            number_of_predictors=cfg.first_stage_model.config.predictor.num_heads,
         )
 
     model.to(device)

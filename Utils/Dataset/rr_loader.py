@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pandas import pd
+import pandas as pd
 from typing import Dict, List, Tuple
 
 import numpy as np
@@ -32,10 +32,11 @@ def load_rr_records(
     return rr_records, patient_ids
 
 def load_csv_records(
-    csv_loader_metadata: CSVLoaderMetadata
+    rri_csv_path: str,
+    features_csv_path: str
 ) -> Dict[str, Dict]:
-    rri_df = pd.read_csv(csv_loader_metadata.rri_csv_path)
-    features_df = pd.read_csv(csv_loader_metadata.features_csv_path)
+    rri_df = pd.read_csv(rri_csv_path)
+    features_df = pd.read_csv(features_csv_path)
 
     rri_cols = [col for col in rri_df.columns if col.startswith("rri_")]
     meta_cols = ["Segment_Name", "start_idx", "end_idx"]

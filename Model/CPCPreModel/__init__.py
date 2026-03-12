@@ -4,6 +4,7 @@ from Model.AutoregressiveBlock import ARBlock
 from Model.PredictionHead.HRVPredictor.MultiStepPredictor import MultiStepHRVPredictor
 from Model.Encoder.RREncoder import Encoder
 from Metadata import CPCPreModelConfig
+
 class CPCPreModel(nn.Module):
     def __init__(self, config:CPCPreModelConfig):
         super().__init__()
