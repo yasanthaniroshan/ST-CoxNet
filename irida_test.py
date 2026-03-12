@@ -296,7 +296,7 @@ validation_cox_dataset = RRSequenceCoxDataset(val_patients, dataset_path, '200x2
 logger.info(f"Cox Train samples: {len(train_cox_dataset)}, Cox Validation samples: {len(validation_cox_dataset)}")
 
 train_cox_loader = DataLoader(train_cox_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True,num_workers=8,pin_memory=True,persistent_workers=True,prefetch_factor=4)
-validation_cox_loader = DataLoader(validation_cox_dataset, batch_size=BATCH_SIZE, shuffle=False, drop_last=False,num_workers=8,pin_memory=True,persistent_workers=True,prefetch_factor=4)
+validation_cox_loader = DataLoader(validation_cox_dataset, batch_size=BATCH_SIZE, shuffle=False, drop_last=True,num_workers=8,pin_memory=True,persistent_workers=True,prefetch_factor=4)
 logger.info(f"Cox Train batches: {len(train_cox_loader)}, Cox Validation batches: {len(validation_cox_loader)}")
 
 encoder = model.encoder
@@ -372,12 +372,14 @@ for epoch in tqdm(range(1, EPOCHS + 1), desc=f"Cox Epochs", unit="epoch"):
         all_time.append(time_to_event)
         all_event.append(event)
         cox_model.eval()
-        actual_times.append(time_to_event)
+        actual_times.append(time_to_event.cpu().tolist())
         with torch.no_grad():
             risk = cox_model(rr_windows).cpu()
+            local_pred_times = []
             for r in risk:
                 t = predict_median_survival(r, times, baseline_cumhaz)
-                pred_times.append(t)
+                local_pred_times.append(t.cpu().item())
+            pred_times.append(local_pred_times)
             all_risk.append(risk.cpu())
 
     all_risk = torch.cat(all_risk)
@@ -386,7 +388,7 @@ for epoch in tqdm(range(1, EPOCHS + 1), desc=f"Cox Epochs", unit="epoch"):
 
     fig = plt.figure()
     plt.scatter(np.array(actual_times), np.array(pred_times), alpha=0.6)
-    max_t = max(actual_times.max(), pred_times.max())
+    max_t = max(np.max(actual_times), np.max(pred_times))
     plt.plot([0, max_t], [0, max_t], 'r--')
     plt.xlabel("Actual Time-to-Event")
     plt.ylabel("Predicted Time-to-Event")
@@ -399,7 +401,8 @@ for epoch in tqdm(range(1, EPOCHS + 1), desc=f"Cox Epochs", unit="epoch"):
         "Cox_train_loss": train_loss,
         "Cox_val_c_index": val_c_index,
         "prediction_plot": wandb.Image(fig)
-    })  
+    })
+    plt.close(fig)  
     tqdm.write(f"Cox Epoch {epoch:02d}: Train Loss = {train_loss:.6f} Validation C-Index = {val_c_index:.6f}")
     logger.info(f"Cox Epoch {epoch:02d}: Train Loss = {train_loss:.6f} Validation C-Index = {val_c_index:.6f}")
 
