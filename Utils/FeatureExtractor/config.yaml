@@ -104,7 +104,7 @@ features:
 
     # Detrended Fluctuation Analysis
     HRV_DFA_alpha1: 1
-    HRV_DFA_alpha2: 1
+    HRV_DFA_alpha2: 0
 
     # Multifractal DFA - alpha1 scale
     HRV_MFDFA_alpha1_Width: 1

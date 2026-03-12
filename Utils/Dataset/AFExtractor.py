@@ -231,7 +231,7 @@ class AFExtractor:
             af_start_in_segment = pre_af_samples
             af_end_in_segment = pre_af_samples + int(episode.duration * fs)
             self.save_rhythm_annotation(af_start_in_segment, af_end_in_segment,
-                                       len(ecg_segment), segment_name, fs)
+                                       len(ecg_segment), segment_name)
 
             # 4. Add to extraction report
             self.extraction_report.append({

@@ -10,8 +10,6 @@ import numpy as np
 if not hasattr(np, 'trapz'):
     np.trapz = np.trapezoid
 
-from Utils.FeatureExtractor.HRVMetrics.HRVTimeFeatures import HRVTimeFeatures
-
 data = nk.data("bio_resting_5min_100hz")
 data.head()  # Print first 5 rows
 peaks, info = nk.ecg_peaks(data["ECG"], sampling_rate=100)
@@ -20,12 +18,18 @@ print(hrv_time.columns.tolist())
 print()
 print(hrv_time.head())
 
-print(peaks)
+# print(peaks)
 
 print("\nTesting HRVTimeFeatures class when the whole ECG is given")
-hrv_time_features = HRVFeatures(data["ECG"], fs=100, rri_given=False)
-features = hrv_time_features.compute_nonlinear_features()
-print("\nExtracted HRV Nonlinear Features:")
+peaks, info = nk.ecg_peaks(data["ECG"], sampling_rate=100)
+r_peaks = peaks["ECG_R_Peaks"].values
+peak_indices = np.where(r_peaks == 1)[0]
+print(f"R-peak indices: {peak_indices}")
+rri = np.diff(peak_indices) * 1000 / 100 # Convert to miliseconds (assuming fs=100Hz)
+print(f"RR intervals (ms): {rri}")
+hrv_time_features = HRVFeatures(rri, fs=100, rri_given=True)
+features = hrv_time_features.compute_time_features()
+print("\nExtracted HRV Time Domain Features:")
 for key, value in features.items():
     print(f"{key}: {value}")
 

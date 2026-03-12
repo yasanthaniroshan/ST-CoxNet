@@ -11,6 +11,18 @@ import neurokit2 as nk
 import numpy as np
 from Utils.FeatureExtractor.Base import BaseExtractor
 from neurokit2.hrv.hrv_utils import _hrv_format_input
+import warnings
+
+# Suppress all NeuroKit2 warnings more comprehensively
+warnings.filterwarnings("ignore", category=UserWarning, module="neurokit2")
+warnings.filterwarnings("ignore", category=RuntimeWarning, module="neurokit2")
+warnings.filterwarnings("ignore", message=".*DFA_alpha2.*")
+warnings.filterwarnings("ignore", message=".*long-term correlation.*")
+warnings.filterwarnings("ignore", message=".*invalid value encountered in scalar divide.*")
+warnings.filterwarnings("ignore", message=".*entropy_multiscale.*")
+# Also try catching it as a general warning
+warnings.simplefilter("ignore", category=UserWarning)
+warnings.simplefilter("ignore", category=RuntimeWarning)
 
 def _filter(d: Dict[str, Any], flags: Dict[str, int]) -> Dict[str, Any]:
     """Keep only keys present in flags with value == 1."""
@@ -160,7 +172,7 @@ class HRVFeatures(BaseExtractor):
         len_D = D.shape[0]
         upper_triangle = D[np.triu_indices(len_D, k=1)]
         eps = np.percentile(upper_triangle, rr_percent * 100)
-        print(f"Calculated eps for RQA: {eps}")
+        # print(f"Calculated eps for RQA: {eps}")
 
         R = (D <= eps).astype(int)
         len_R = R.shape[0]
