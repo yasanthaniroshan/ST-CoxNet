@@ -4,11 +4,11 @@ from Model.CoxHead.Base import CoxHead
 import torch
 
 class DeepSurvCox(nn.Module):
-    def __init__(self, encoder, context, context_dim:int):
+    def __init__(self, encoder, context, context_dim:int,latent_dim:int):
         super().__init__()
         self.encoder = encoder
         self.context = context
-        self.cox_head = CoxHead(context_dim)
+        self.cox_head = CoxHead(context_dim, latent_dim)
 
     def forward(self, rr_windows):
         B, T, W = rr_windows.shape
@@ -22,6 +22,7 @@ class DeepSurvCox(nn.Module):
         z_seq = torch.stack(z_list, dim=1)
         c_seq = self.context(z_seq)
         c_last = c_seq[:, -1, :]
-        
-        risk = self.cox_head(c_last).squeeze(-1)
+        z_last = z_seq[:, -1, :]
+
+        risk = self.cox_head(c_last, z_last).squeeze(-1)
         return risk, c_seq, z_seq

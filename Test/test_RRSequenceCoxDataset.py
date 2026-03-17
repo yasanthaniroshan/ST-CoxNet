@@ -6,7 +6,8 @@ import pandas as pd
 from sklearn.preprocessing import RobustScaler
 
 # Hyperparameters
-LR = 2e-4
+LR = 5e-4
+COX_LR = 1e-3
 EPOCHS = 100
 LATENT_SIZE = 32
 CONTEXT_SIZE = 64

@@ -4,6 +4,7 @@ from typing import List,Tuple,Optional,Dict,Any
 from omegaconf import ListConfig
 from Utils.FeatureExtractor.Base import BaseExtractor
 
+
 class FileLoaderMetadata(BaseModel):
     name: str
     path: str

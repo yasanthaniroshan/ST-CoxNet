@@ -44,6 +44,7 @@ class RRSequenceCoxDataset(Dataset):
                 event = patient_df.iloc[i + sample_size - 1]['Event']
                 if time_to_event > limit_time_to_event:
                     event = 0  # Censoring: event did not occur within the limit
+                    time_to_event = limit_time_to_event  # Cap time to event at the limit for censored samples
                 rr_window_indexes = range(i, i + sample_size)
                 rr_windows = []
                 for idx in rr_window_indexes:

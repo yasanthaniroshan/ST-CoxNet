@@ -1,7 +1,7 @@
 
 import numpy as np
-class CIndex:
 
+class CIndex:
     @staticmethod
     def calculate(risk, duration, event):
         risk = risk.detach().cpu().numpy().reshape(-1)

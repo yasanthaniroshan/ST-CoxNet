@@ -16,7 +16,7 @@ import wandb
 from Utils.Dataset.IRIDADataset import RRSequenceDataset
 from Utils.Dataset.CoxDataset.RRSequenceCoxDataset import RRSequenceCoxDataset
 from Model.DeepSurv import DeepSurvCox
-from Model.Encoder.BaseEncoder import Encoder
+from Model.Encoder.ResNetEncoder import Encoder
 from Model.AutoregressiveBlock import ARBlock
 from Model.PredictionHead.HRVPredictor.MultiStepPredictor import MultiStepHRVPredictor
 from logging import getLogger, FileHandler, Formatter, INFO
@@ -111,7 +111,7 @@ def validation_step(model, dataloader, device):
             hrv_targets = hrv_targets.to(device)
 
             # Compute loss
-            loss,loss_1,loss_2,loss_4 = training_step(model, rr_windows, hrv_targets,epoch,EPOCHS)
+            loss,loss_1,loss_2,loss_4 = training_step(model, rr_windows, hrv_targets,epoch,CPC_EPOCHS)
             val_loss += loss.item()
             val_loss_1 += loss_1.item()
             val_loss_2 += loss_2.item()
@@ -170,21 +170,22 @@ load_dotenv()
 
 
 # Hyperparameters
-CPC_LR = 2e-4
+CPC_LR = 5e-4
 COX_LR = 1e-3
-EPOCHS = 100
+CPC_EPOCHS = 50
+COX_EPOCHS = 100
 LATENT_SIZE = 32
-CONTEXT_SIZE = 64
+CONTEXT_SIZE = 128
 NUMBER_OF_TARGETS_FOR_PREDICTION = 6
 NUMBER_OF_HEADS = 3
 WINDOW_SIZE = 200
 STRIDE = 20
 HORIZONS = [2,4,8]  # Predicting HRV differences at 2, 4, and 8 windows into the future
-SEQUENCE_LENGTH = 10
+SEQUENCE_LENGTH = 20
 VALIDATION_RATIO = 0.3
-BATCH_SIZE = 1024
+BATCH_SIZE = 512
 PREDICTION = "hrv difference"
-NOTES = "Testing without Pre Training CPC model"
+NOTES = "Testing new Encoder and Prediction head architectures with adjusted learning rates and loss weighting strategy on IRIDA-AF dataset."
 
 
 EXPORTPATH = os.path.join(os.getcwd(), 'Exports')
@@ -202,7 +203,8 @@ run = wandb.init(
     config={
         "cpc_learning_rate": CPC_LR,
         "cox_learning_rate": COX_LR,
-        "epochs": EPOCHS,
+        "cpc_epochs": CPC_EPOCHS,
+        "cox_epochs": COX_EPOCHS,
         "latent_size": LATENT_SIZE,
         "context_size": CONTEXT_SIZE,
         "number_of_targets_for_prediction": NUMBER_OF_TARGETS_FOR_PREDICTION,
@@ -257,7 +259,7 @@ optimizer = AdamW(model.parameters(), lr=CPC_LR)
 logger.info(f"Model initialized with {sum(p.numel() for p in model.parameters())} parameters")
 
 
-for epoch in tqdm(range(1, EPOCHS + 1), desc=f"Epochs", unit="epoch"):
+for epoch in tqdm(range(1, CPC_EPOCHS + 1), desc=f"Epochs", unit="epoch"):
     model.train()
     running_loss = 0.0
     batch_count = 0
@@ -265,7 +267,7 @@ for epoch in tqdm(range(1, EPOCHS + 1), desc=f"Epochs", unit="epoch"):
         rr_windows = rr_windows.to(device)
         hrv_targets = hrv_targets.to(device)
         optimizer.zero_grad()
-        loss,loss_1,loss_2,loss_4 = training_step(model, rr_windows, hrv_targets,epoch,EPOCHS)
+        loss,loss_1,loss_2,loss_4 = training_step(model, rr_windows, hrv_targets,epoch,CPC_EPOCHS)
         loss.backward()
         optimizer.step()
 
@@ -289,10 +291,10 @@ for epoch in tqdm(range(1, EPOCHS + 1), desc=f"Epochs", unit="epoch"):
     logger.info(f"Epoch {epoch:02d}: Train Loss = {train_loss:.6f} Validation Loss = {val_loss:.6f} 1 : {val_loss_1:.6f} 2 : {val_loss_2:.6f} 4 : {val_loss_4:.6f}")
 
 
-torch.save(model.state_dict(), os.path.join(EXPORTPATH, f'cpc_pre_model_epoch_{EPOCHS}.pth'))
+torch.save(model.state_dict(), os.path.join(EXPORTPATH, f'cpc_pre_model_epoch_{CPC_EPOCHS}.pth'))
 
-artifact = wandb.Artifact(name=f'cpc_pre_model_epoch_{EPOCHS}', type='model')
-artifact.add_file(local_path=os.path.join(EXPORTPATH, f'cpc_pre_model_epoch_{EPOCHS}.pth'), name=f'cpc_pre_model_epoch_{EPOCHS}.pth')
+artifact = wandb.Artifact(name=f'cpc_pre_model_epoch_{CPC_EPOCHS}', type='model')
+artifact.add_file(local_path=os.path.join(EXPORTPATH, f'cpc_pre_model_epoch_{CPC_EPOCHS}.pth'), name=f'cpc_pre_model_epoch_{CPC_EPOCHS}.pth')
 run.log_artifact(artifact)
 
 
@@ -308,14 +310,20 @@ encoder = model.encoder
 context = model.context
 logger.info(f"Encoder parameters: {sum(p.numel() for p in encoder.parameters())}, Context parameters: {sum(p.numel() for p in context.parameters())}")
 
-cox_model = DeepSurvCox(encoder=encoder, context=context, context_dim=CONTEXT_SIZE).to(device)
+# for param in encoder.parameters():
+#     param.requires_grad = False
+
+# for param in context.parameters():
+#     param.requires_grad = False
+
+cox_model = DeepSurvCox(encoder=encoder, context=context, context_dim=CONTEXT_SIZE, latent_dim=LATENT_SIZE).to(device)
 logger.info(f"Cox model initialized with {sum(p.numel() for p in cox_model.parameters())} parameters")
 
 cox_optimizer = AdamW(cox_model.parameters(), lr=COX_LR)
 cox_loss_fn = DeepSurvLoss()
 c_index = CIndex()
 
-for epoch in tqdm(range(1, EPOCHS + 1), desc=f"Cox Epochs", unit="epoch"):
+for epoch in tqdm(range(1, COX_EPOCHS + 1), desc=f"Cox Epochs", unit="epoch"):
     cox_model.train()
     running_loss = 0.0
     batch_count = 0
@@ -504,11 +512,11 @@ for epoch in tqdm(range(1, EPOCHS + 1), desc=f"Cox Epochs", unit="epoch"):
     tqdm.write(f"Cox Epoch {epoch:02d}: Train Loss = {train_loss:.6f} Validation C-Index = {val_c_index:.6f}")
     logger.info(f"Cox Epoch {epoch:02d}: Train Loss = {train_loss:.6f} Validation C-Index = {val_c_index:.6f}")
 
-cox_model_path = os.path.join(EXPORTPATH, f'cox_model_epoch_{EPOCHS}.pth')
+cox_model_path = os.path.join(EXPORTPATH, f'cox_model_epoch_{COX_EPOCHS}.pth')
 torch.save(cox_model.state_dict(), cox_model_path)
 
-cox_artifact = wandb.Artifact(name=f'cox_model_epoch_{EPOCHS}', type='model')
-cox_artifact.add_file(local_path=cox_model_path, name=f'cox_model_epoch_{EPOCHS}.pth')
+cox_artifact = wandb.Artifact(name=f'cox_model_epoch_{COX_EPOCHS}', type='model')
+cox_artifact.add_file(local_path=cox_model_path, name=f'cox_model_epoch_{COX_EPOCHS}.pth')
 run.log_artifact(cox_artifact)
 
 logger.info("Training complete.")

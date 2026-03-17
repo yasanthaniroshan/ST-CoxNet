@@ -1,1 +1,3 @@
 Utils/Dataset/AFDB/CSV_Files/*.csv filter=lfs diff=lfs merge=lfs -text
+processed_datasets/* filter=lfs diff=lfs merge=lfs -text
+*.h5 filter=lfs diff=lfs merge=lfs -text
