@@ -327,13 +327,20 @@ try:
         dropout=config['dropout']
     ).to(device)
 
-    cox_optimizer = optim.AdamW(cox.parameters(), lr=config["cox_lr"],weight_decay=1e-2)
+    for param in cpc.parameters():
+        param.requires_grad = True          # unfreeze
+
+    cox_optimizer = optim.AdamW([
+        {"params": cpc.parameters(),  "lr": config["cpc_lr"] * 0.01},   # 10x smaller
+        {"params": cox.parameters(),  "lr": config["cox_lr"]},
+    ], weight_decay=1e-2)    
+
     loss_fn = DeepSurvLoss()
 
-    cpc.eval()
+    # cpc.eval()
 
-    for param in cpc.parameters():
-        param.requires_grad = False
+    # for param in cpc.parameters():
+    #     param.requires_grad = False
 
     pbar = tqdm(total=cox_epochs, desc="Training Cox Model")
     for cox_epoch in range(cox_epochs):
@@ -351,8 +358,8 @@ try:
 
             cox_optimizer.zero_grad()
 
-            with torch.no_grad():
-                _,_, embeddings, context = cpc(rr)
+            # with torch.no_grad():
+            _,_, embeddings, context = cpc(rr)
 
             logits = cox(context[:, -1, :],embeddings[:,-1,:])
             loss = loss_fn(logits, time, event)
