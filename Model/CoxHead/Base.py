@@ -1,6 +1,10 @@
 from torch import nn
 import torch
 class CoxHead(nn.Module):
+
+    def _init_weight(self):
+        nn.init.zeros_(self.net[-1].weight)  # Initialize final layer to output zero risk scores
+    
     def __init__(self, context_dim:int,latent_dim:int,dropout:float=0.2):
         super().__init__()
         input_dim = context_dim + latent_dim
@@ -12,8 +16,11 @@ class CoxHead(nn.Module):
             nn.Dropout(dropout),
             nn.Linear(64, 32),
             nn.GELU(),
-            nn.Linear(32, 1)
+            nn.Linear(32, 1,bias=False)  # Output is a single risk score (log hazard ratio)
         )
+
+        self._init_weight()
+
     def forward(self, c, z):
         context = self.context_norm(c)
         latent = self.latent_norm(z)

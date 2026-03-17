@@ -1,7 +1,7 @@
 from Model.CPC import CPC
 from Model.PredictionHead.TimePredictor import TimePredictor
 from Model.CoxHead.Base import CoxHead
-from Loss.DeepSurvLoss import DeepSurvLoss
+from Loss.DeepSurvLoss import ImprovedDeepSurvLoss as DeepSurvLoss
 import torch
 import torch.nn as nn
 import torch.optim as optim
