@@ -12,10 +12,13 @@ class CoxHead(nn.Module):
         self.latent_norm = nn.LayerNorm(latent_dim)
         self.net = nn.Sequential(
             nn.Linear(input_dim, 64),
+            nn.LayerNorm(64),
             nn.GELU(),
             nn.Dropout(dropout),
             nn.Linear(64, 32),
+            nn.LayerNorm(32),
             nn.GELU(),
+            nn.Dropout(dropout),
             nn.Linear(32, 1,bias=False)  # Output is a single risk score (log hazard ratio)
         )
 
