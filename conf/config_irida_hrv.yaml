@@ -1,0 +1,23 @@
+defaults:
+  - override hydra/launcher: joblib
+
+cpc:
+  batch_size: 32
+  num_epochs: 10
+
+cox:
+  batch_size: 32
+  num_epochs: 10
+
+hydra:
+  sweep:
+    dir: ./multirun_outputs  # where multirun logs are saved
+    subdir: ${hydra.job.num}
+  sweeper:
+    params:
+      cpc.batch_size: 16,32,64,128        # fewer options
+      cpc.num_epochs: 50,100       # fewer options
+      cox.batch_size: 16,32,64,128        # fewer options
+      cox.num_epochs: 50,100       # fewer options
+  launcher:
+    n_jobs: 2   # limit parallel jobs to 2

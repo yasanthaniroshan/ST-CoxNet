@@ -259,36 +259,36 @@ optimizer = AdamW(model.parameters(), lr=CPC_LR)
 logger.info(f"Model initialized with {sum(p.numel() for p in model.parameters())} parameters")
 
 
-# for epoch in tqdm(range(1, CPC_EPOCHS + 1), desc=f"Epochs", unit="epoch"):
-#     model.train()
-#     running_loss = 0.0
-#     batch_count = 0
-#     for rr_windows, hrv_targets in train_loader:
-#         rr_windows = rr_windows.to(device)
-#         hrv_targets = hrv_targets.to(device)
-#         optimizer.zero_grad()
-#         loss,loss_1,loss_2,loss_4 = training_step(model, rr_windows, hrv_targets,epoch,CPC_EPOCHS)
-#         loss.backward()
-#         optimizer.step()
+for epoch in tqdm(range(1, CPC_EPOCHS + 1), desc=f"Epochs", unit="epoch"):
+    model.train()
+    running_loss = 0.0
+    batch_count = 0
+    for rr_windows, hrv_targets in train_loader:
+        rr_windows = rr_windows.to(device)
+        hrv_targets = hrv_targets.to(device)
+        optimizer.zero_grad()
+        loss,loss_1,loss_2,loss_4 = training_step(model, rr_windows, hrv_targets,epoch,CPC_EPOCHS)
+        loss.backward()
+        optimizer.step()
 
-#         running_loss += loss.item()
-#         batch_count += 1
+        running_loss += loss.item()
+        batch_count += 1
         
-#     train_loss = running_loss / batch_count
-#     val_loss,val_loss_1,val_loss_2,val_loss_4 = validation_step(model, val_loader, device)
-#     run.log({
-#         "CPC_epoch": epoch,
-#         "CPC_train_loss": train_loss,
-#         "CPC_train_loss_1": loss_1.item(),
-#         "CPC_train_loss_2": loss_2.item(),
-#         "CPC_train_loss_4": loss_4.item(),
-#         "CPC_val_loss": val_loss,
-#         "CPC_val_loss_1": val_loss_1,
-#         "CPC_val_loss_2": val_loss_2,
-#         "CPC_val_loss_4": val_loss_4
-#     })
-#     tqdm.write(f"Epoch {epoch:02d}: Train Loss = {train_loss:.6f} Validation Loss = {val_loss:.6f} 1 : {val_loss_1:.6f} 2 : {val_loss_2:.6f} 4 : {val_loss_4:.6f}")
-#     logger.info(f"Epoch {epoch:02d}: Train Loss = {train_loss:.6f} Validation Loss = {val_loss:.6f} 1 : {val_loss_1:.6f} 2 : {val_loss_2:.6f} 4 : {val_loss_4:.6f}")
+    train_loss = running_loss / batch_count
+    val_loss,val_loss_1,val_loss_2,val_loss_4 = validation_step(model, val_loader, device)
+    run.log({
+        "CPC_epoch": epoch,
+        "CPC_train_loss": train_loss,
+        "CPC_train_loss_1": loss_1.item(),
+        "CPC_train_loss_2": loss_2.item(),
+        "CPC_train_loss_4": loss_4.item(),
+        "CPC_val_loss": val_loss,
+        "CPC_val_loss_1": val_loss_1,
+        "CPC_val_loss_2": val_loss_2,
+        "CPC_val_loss_4": val_loss_4
+    })
+    tqdm.write(f"Epoch {epoch:02d}: Train Loss = {train_loss:.6f} Validation Loss = {val_loss:.6f} 1 : {val_loss_1:.6f} 2 : {val_loss_2:.6f} 4 : {val_loss_4:.6f}")
+    logger.info(f"Epoch {epoch:02d}: Train Loss = {train_loss:.6f} Validation Loss = {val_loss:.6f} 1 : {val_loss_1:.6f} 2 : {val_loss_2:.6f} 4 : {val_loss_4:.6f}")
 
 
 torch.save(model.state_dict(), os.path.join(EXPORTPATH, f'cpc_pre_model_epoch_{CPC_EPOCHS}.pth'))
