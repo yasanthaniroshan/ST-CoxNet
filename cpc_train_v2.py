@@ -15,6 +15,7 @@ from sklearn.decomposition import PCA
 
 import matplotlib.pyplot as plt
 from dotenv import load_dotenv
+from lifelines.utils import concordance_index as calculate_c_index
 import wandb
 
 load_dotenv()
@@ -51,27 +52,6 @@ def predict_median_survival(risk, times, baseline_cumhaz):
 
     return times[idx[0]]
 
-def concordance_index(pred, target):
-    """
-    pred, target: [B, 1] normalized time-to-event
-    Penalizes pairs where the predicted ordering disagrees with actual ordering.
-    """
-    pred = pred.squeeze(1)
-    target = target.squeeze(1)
-    
-    # All pairwise differences
-    pred_diff = pred.unsqueeze(0) - pred.unsqueeze(1)      # [B, B]
-    target_diff = target.unsqueeze(0) - target.unsqueeze(1) # [B, B]
-    
-    # Mask: only consider pairs where target ordering is clear (not ties)
-    mask = (target_diff.abs() > 1e-4)
-    
-    # Concordant if signs agree
-    concordant = ((pred_diff * target_diff) > 0).float()
-    
-    # C-index as a loss (maximize concordance = minimize 1 - concordance)
-    c_index = concordant[mask].mean()
-    return c_index
 
 try:
     console = logging.StreamHandler()
@@ -420,7 +400,10 @@ try:
         val_event = torch.cat(val_event)
         val_risk = torch.cat(val_risk)
         predictions = torch.tensor([item for sublist in predicted_times for item in sublist])
-        concordance = concordance_index(predictions.unsqueeze(1), val_time.unsqueeze(1))
+
+        # Note: We negate the risk scores because lifelines expects a measure of "time lived", 
+        # and a higher risk score implies a shorter time lived.
+        concordance = calculate_c_index(val_time.cpu().numpy().flatten(), -val_risk.cpu().numpy().flatten(), val_event.cpu().numpy().flatten())
 
         np_actual_times = np.concatenate(actual_times, axis=0)
         np_predicted_times = np.concatenate(predicted_times, axis=0)

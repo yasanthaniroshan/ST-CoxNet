@@ -167,7 +167,7 @@ def create_dataset(dataset_path:str,afib_length:int,sr_length:int,number_of_wind
         labels = np.concatenate(labels, axis=0)
         times = np.concatenate(times, axis=0)
         max_time_to_event = max(times)
-        times = times/max_time_to_event
+        # times = times/max_time_to_event
         print(f"Max time to event in hours: {max(times):.2f} Min time to event in hours: {min(times):.2f}")
         segments_reshaped = segments.reshape(-1, window_size)
         segments_scaled = scaler.fit_transform(segments_reshaped)
@@ -203,7 +203,7 @@ def create_dataset(dataset_path:str,afib_length:int,sr_length:int,number_of_wind
         segments = np.concatenate(segments, axis=0)
         labels = np.concatenate(labels, axis=0)
         times = np.concatenate(times, axis=0)
-        times = times / max_time_to_event if max_time_to_event > 0 else times
+        # times = times / max_time_to_event if max_time_to_event > 0 else times
         print(f"Max time to event in hours: {max(times):.2f} Min time to event in hours: {min(times):.2f}")
         segments_reshaped = segments.reshape(-1, window_size)
         segments_scaled = scaler.transform(segments_reshaped)

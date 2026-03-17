@@ -4,6 +4,7 @@ from Utils.Dataset.CPCCoxDataset import CPCCoxDataset
 from Utils.Dataset.CPCDataset import CPCDataset
 from torch.utils.data import DataLoader
 import torch
+import numpy as np
 
 config={
     "afib_length": 60*60,
@@ -80,8 +81,19 @@ cox = CoxHead(
     dropout=config["dropout"]
 )
 
-avg_loss,avg_acc,latent,context = cpc(rr)
-pred_danger = cox(context, latent)
+# avg_loss,avg_acc,latent,context = cpc(rr)
+# pred_danger = cox(context, latent)
 
-print(f"CPC Output - Loss: {avg_loss}, Accuracy: {avg_acc}, Context shape: {context.shape}, Latent shape: {latent.shape}")
-print(f"Cox Output - Predicted Risk shape: {pred_danger.shape}")
+# print(f"CPC Output - Loss: {avg_loss}, Accuracy: {avg_acc}, Context shape: {context.shape}, Latent shape: {latent.shape}")
+# print(f"Cox Output - Predicted Risk shape: {pred_danger.shape}")
+
+# Diagnostic — run this before training:
+from collections import defaultdict
+times_by_label = defaultdict(list)
+for _, label, time, event in cox_train_dataset:
+    times_by_label[label.item()].append(time.item())
+
+for label, times in times_by_label.items():
+    name = {-1: "SR", 0: "Mixed", 1: "AFIB"}[label]
+    print(f"{name}: mean={np.mean(times):.3f}, std={np.std(times):.3f}, "
+          f"min={np.min(times):.3f}, max={np.max(times):.3f}")
