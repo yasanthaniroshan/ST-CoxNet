@@ -2,11 +2,11 @@ from Utils.Dataset.CPCDataset import CPCDataset
 import os 
 
 if __name__ == "__main__":
-    processed_dataset_path = "//home/intellisense01/EML-Labs/ST-CoxNet/processed_datasets"
+    processed_dataset_path = "/home/intellisense01/EML-Labs/ST-CoxNet/processed_datasets"
     afib_length = 60*60
-    sr_length = 60*60
-    number_of_windows_in_segment = 20
-    stride = 50
+    sr_length = int(1.5*60*60)
+    number_of_windows_in_segment = 10
+    stride = 20
     window_size = 100
     validation_split = 0.15
 

@@ -67,7 +67,7 @@ try:
         "window_size": 100,
         "validation_split": 0.15,
         "cpc_epochs": 20,
-        "cox_epochs": 20,
+        "cox_epochs": 40,
         "dropout": 0.2,
         "temperature": 0.2,
         "latent_dim": 64,
@@ -311,7 +311,7 @@ try:
         param.requires_grad = True          # unfreeze
 
     cox_optimizer = optim.AdamW([
-        {"params": cpc.parameters(),  "lr": config["cpc_lr"] * 0.01},   # 10x smaller
+        {"params": cpc.parameters(),  "lr": config["cpc_lr"] * 0.1},   # 10x smaller
         {"params": cox.parameters(),  "lr": config["cox_lr"]},
     ], weight_decay=1e-2)    
 
