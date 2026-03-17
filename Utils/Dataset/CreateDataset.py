@@ -233,7 +233,7 @@ if __name__ == "__main__":
         afib_length=60*60,
         sr_length=int(1.5*60*60),
         number_of_windows_in_segment=10,
-        stride=500,
-        window_size=50,
+        stride=20,
+        window_size=100,
     )
 

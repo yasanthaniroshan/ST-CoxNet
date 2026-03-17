@@ -1,10 +1,13 @@
 from Model.CPC import CPC
 from Model.PredictionHead.TimePredictor import TimePredictor
+from Model.CoxHead.Base import CoxHead
+from Loss.DeepSurvLoss import DeepSurvLoss
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 from Utils.Dataset.CPCDataset import CPCDataset
+from Utils.Dataset.CPCCoxDataset import CPCCoxDataset
 from torch.utils.data import DataLoader
 import logging
 from tqdm import tqdm
@@ -20,7 +23,35 @@ wandb.login()
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-def concordance_loss(pred, target):
+def compute_baseline_hazard(risk, time, event):
+    order = torch.argsort(time)
+    time = time[order]
+    event = event[order]
+    risk = risk[order]
+
+    unique_times = torch.unique(time[event == 1])
+
+    hazards = []
+    for t in unique_times:
+        d = ((time == t) & (event == 1)).sum()
+        risk_set = torch.exp(risk[time >= t]).sum()
+        hazards.append(d / risk_set)
+
+    hazards = torch.stack(hazards)
+    cumhaz = torch.cumsum(hazards, dim=0)
+
+    return unique_times, cumhaz
+
+def predict_median_survival(risk, times, baseline_cumhaz):
+    surv = torch.exp(-baseline_cumhaz * torch.exp(risk))
+
+    idx = torch.where(surv <= 0.5)[0]
+    if len(idx) == 0:
+        return times[-1]
+
+    return times[idx[0]]
+
+def concordance_index(pred, target):
     """
     pred, target: [B, 1] normalized time-to-event
     Penalizes pairs where the predicted ordering disagrees with actual ordering.
@@ -40,7 +71,7 @@ def concordance_loss(pred, target):
     
     # C-index as a loss (maximize concordance = minimize 1 - concordance)
     c_index = concordant[mask].mean()
-    return 1.0 - c_index
+    return c_index
 
 try:
     console = logging.StreamHandler()
@@ -52,23 +83,23 @@ try:
         "afib_length": 60*60,
         "sr_length": int(1.5*60*60),
         "number_of_windows_in_segment": 10,
-        "stride": 500,
-        "window_size": 50,
+        "stride": 20,
+        "window_size": 100,
         "validation_split": 0.15,
-        "cpc_epochs": 100,
-        "tp_epochs": 100,
+        "cpc_epochs": 20,
+        "cox_epochs": 20,
         "dropout": 0.2,
         "temperature": 0.2,
         "latent_dim": 64,
-        "context_dim": 256,
+        "context_dim": 128,
         "number_of_prediction_steps": 6,
         "batch_size": 512,
         "cpc_lr": 1e-3,
-        "tp_lr": 1e-3
+        "cox_lr": 1e-3
     }
     run = wandb.init(
         entity="eml-labs",
-        project="CPC-New", 
+        project="CPC-New-v2", 
         config=config,
     )
         
@@ -83,7 +114,7 @@ try:
     window_size = config["window_size"]
     validation_split = config["validation_split"]
     cpc_epochs = config["cpc_epochs"]
-    tp_epochs = config["tp_epochs"]
+    cox_epochs = config["cox_epochs"]
     processed_dataset_path = "//home/intellisense01/EML-Labs/ST-CoxNet/processed_datasets"
 
     train_dataset = CPCDataset(
@@ -234,93 +265,213 @@ try:
         })
         plt.close(fig)
 
-
+    pbar.close()
     torch.save(cpc.state_dict(), "cpc_model.pth")
     artifact = wandb.Artifact("cpc_model", type="model")
     artifact.add_file("cpc_model.pth")
     run.log_artifact(artifact)
 
-    tp = TimePredictor(
-        embedding_dim=config['latent_dim'],
+    cox_train_dataset = CPCCoxDataset(
+        processed_dataset_path=processed_dataset_path,
+        afib_length=afib_length,
+        sr_length=sr_length,
+        number_of_windows_in_segment=number_of_windows_in_segment,
+        stride=stride,
+        window_size=window_size,
+        validation_split=validation_split,
+        train=True
+    )
+
+    logger.info(f"Loaded {len(cox_train_dataset)} training segments.")
+
+    cox_validation_dataset = CPCCoxDataset(
+        processed_dataset_path=processed_dataset_path,
+        afib_length=afib_length,
+        sr_length=sr_length,
+        number_of_windows_in_segment=number_of_windows_in_segment,
+        stride=stride,
+        window_size=window_size,
+        validation_split=validation_split,
+        train=False
+    )
+
+    logger.info(f"Loaded {len(cox_validation_dataset)} validation segments.")
+
+    cox_train_data_loader = DataLoader(
+        cox_train_dataset, 
+        batch_size=config["batch_size"], 
+        shuffle=True,
+        drop_last=True,
+        num_workers=8,
+        pin_memory=True,
+        persistent_workers=True,
+        prefetch_factor=4
+        )
+
+    cox_validation_data_loader = DataLoader(
+        cox_validation_dataset, 
+        batch_size=config["batch_size"], 
+        shuffle=False,
+        drop_last=False,
+        num_workers=8,
+        pin_memory=True,
+        persistent_workers=True,
+        prefetch_factor=4
+        )
+
+
+
+    cox = CoxHead(
         context_dim=config['context_dim'],
+        latent_dim=config['latent_dim'],
         dropout=config['dropout']
     ).to(device)
 
-    tp_optimizer = optim.AdamW(tp.parameters(), lr=config["tp_lr"],weight_decay=1e-2)
-    loss_fn = nn.HuberLoss(delta=1.0)
+    cox_optimizer = optim.AdamW(cox.parameters(), lr=config["cox_lr"],weight_decay=1e-2)
+    loss_fn = DeepSurvLoss()
 
     cpc.eval()
 
     for param in cpc.parameters():
         param.requires_grad = False
 
-    pbar = tqdm(total=tp_epochs, desc="Training Time Predictor")
-    for tp_epoch in range(tp_epochs):
+    pbar = tqdm(total=cox_epochs, desc="Training Cox Model")
+    for cox_epoch in range(cox_epochs):
         total_loss = 0
         validation_loss = 0
-        for rr,label,time in train_data_loader:
+        train_risk = []
+        train_time = []
+        train_event = []  
+        for rr,label,time,event in cox_train_data_loader:
+
             rr = rr.to(device, non_blocking=True)
             label = label.to(device, non_blocking=True)
-            time = time.to(device, non_blocking=True).unsqueeze(1)
-            tp_optimizer.zero_grad()
+            time = time.to(device, non_blocking=True)
+            event = event.to(device, non_blocking=True)
+
+            cox_optimizer.zero_grad()
+
             with torch.no_grad():
                 _,_, embeddings, context = cpc(rr)
-            time_pred = tp(embeddings, context)
-            loss = loss_fn(time_pred, time) + 0.5 * concordance_loss(time_pred, time)
+
+            logits = cox(context[:, -1, :],embeddings[:,-1,:])
+            loss = loss_fn(logits, time, event)
+
             total_loss += loss.item()
             loss.backward()
-            tp_optimizer.step()
+            cox_optimizer.step()
+
+            train_risk.append(logits.detach().cpu())
+            train_time.append(time.cpu())
+            train_event.append(event.cpu())
 
         actual_times = []
         predicted_times = []
-        for rr,label,time in validation_data_loader:
+
+        train_event = torch.cat(train_event)
+        train_time = torch.cat(train_time)
+        train_risk = torch.cat(train_risk)
+
+        times,baseline_cumhuz = compute_baseline_hazard(
+            train_risk,
+            train_time,
+            train_event
+        )
+
+        val_risk = []
+        val_time = []
+        val_event = []
+          
+        for rr,label,time,event in cox_validation_data_loader:
+
             rr = rr.to(device, non_blocking=True)
             label = label.to(device, non_blocking=True)
-            time = time.to(device, non_blocking=True).unsqueeze(1)
+            time = time.to(device, non_blocking=True)
+            event = event.to(device, non_blocking=True)
+
+            actual_times.append(time.cpu().numpy())
+
             with torch.no_grad():
                 _,_, embeddings, context = cpc(rr)
-                time_pred = tp(embeddings, context)
-                loss = loss_fn(time_pred, time) + 0.5 * concordance_loss(time_pred, time)
-                validation_loss += loss.item()
-                actual_times.append(time.cpu().numpy())
-                predicted_times.append(time_pred.detach().cpu().numpy())
+                logits = cox(context[:, -1, :],embeddings[:,-1,:])
 
-        pbar.update(1)
-        pbar.set_description(f"Epoch {tp_epoch+1}")
-        pbar.write(f"Epoch {tp_epoch+1}, Time Predictor Loss: {total_loss / len(train_data_loader):.4f}, Validation Loss: {validation_loss / len(validation_data_loader):.4f}")
+                loss = loss_fn(logits, time, event)
+                validation_loss += loss.item()
+
+                val_risk.append(logits.detach().cpu())
+                val_time.append(time.cpu())
+                val_event.append(event.cpu())
+
+                local_pred_times = []
+
+                for r in logits.cpu():
+                    predicted_time = predict_median_survival(r, times, baseline_cumhuz)
+                    local_pred_times.append(predicted_time.cpu().item())
+                predicted_times.append(local_pred_times)
+
+        val_time = torch.cat(val_time)
+        val_event = torch.cat(val_event)
+        val_risk = torch.cat(val_risk)
+        predictions = torch.tensor([item for sublist in predicted_times for item in sublist])
+        concordance = concordance_index(predictions.unsqueeze(1), val_time.unsqueeze(1))
+
         np_actual_times = np.concatenate(actual_times, axis=0)
         np_predicted_times = np.concatenate(predicted_times, axis=0)
         
-        plt.figure(figsize=(6,6))
-        plt.scatter(np_actual_times, np_predicted_times, alpha=0.5)
-        plt.plot([0, np.max(np_actual_times)], [0, np.max(np_actual_times)], 'r--')  # Line for perfect predictions
-        plt.xlabel("Actual Time to Event (hours)")
-        plt.ylabel("Predicted Time to Event (hours)")
-        plt.title(f"Actual vs Predicted Time to Event - Epoch {tp_epoch+1}")
-        plt.xlim(0, np.max(np_actual_times)*1.1)
-        plt.ylim(0, np.max(np_actual_times)*1.1)
-        plt.grid()
-        plt.tight_layout()
+        fig =plt.figure(figsize=(12,12))
+        fig.suptitle(f"Cox Model - Epoch {cox_epoch+1}", fontsize=16)
+        gs = fig.add_gridspec(2,2)
+        ax1 = fig.add_subplot(gs[0, 0])
 
+        ax1.scatter(np_actual_times, np_predicted_times, alpha=0.5)
+        ax1.plot([0, np.max(np_actual_times)], [0, np.max(np_actual_times)], 'r--')  # Line for perfect predictions
+        ax1.set_xlabel("Actual Time to Event (hours)")
+        ax1.set_ylabel("Predicted Time to Event (hours)")
+        ax1.set_title(f"Actual vs Predicted Time to Event - Epoch {cox_epoch+1}")
+        ax1.set_xlim(0, np.max(np_actual_times)*1.1)
+        ax1.set_ylim(0, np.max(np_actual_times)*1.1)
+        ax1.grid()
+        # Hex Bin density Plot
+        ax2 = fig.add_subplot(gs[0, 1])
+        hb = ax2.hexbin(np_actual_times, np_predicted_times, gridsize=50, cmap='Blues', mincnt=1)
+        ax2.set_xlabel("Actual Time to Event (hours)")
+        ax2.set_ylabel("Predicted Time to Event (hours)")
+        ax2.set_title(f"Prediction Density - Epoch {cox_epoch+1}")
+       
+
+        # Risk Distribution Plot
+        ax3 = fig.add_subplot(gs[1, :])
+        ax3.hist(val_risk.cpu().numpy(), bins=50, color='blue', alpha=0.7)
+        ax3.set_xlabel("Predicted Risk Score")
+        ax3.set_title(f"Predicted Risk Score Distribution - Epoch {cox_epoch+1}")
+        ax3.grid()
+
+        plt.tight_layout(rect=[0, 0, 1, 0.95])
         run.log({
-            "tp_epoch": tp_epoch+1,
-            "tp_training_loss": total_loss / len(train_data_loader),
-            "tp_validation_loss": validation_loss / len(validation_data_loader),
-            "tp_scatter_plot": wandb.Image(plt)
+            "cox_epoch": cox_epoch+1,
+            "cox_training_loss": total_loss / len(cox_train_data_loader),
+            "cox_validation_loss": validation_loss / len(cox_validation_data_loader),
+            "concordance_index": concordance.item(),
+            "cox_scatter_plot": wandb.Image(fig)
         })
-        plt.close()
+        plt.close(fig)
+        pbar.update(1)
+        pbar.set_description(f"Epoch {cox_epoch+1}")
+        pbar.write(f"Epoch {cox_epoch+1}, Cox Model Loss: {total_loss / len(cox_train_data_loader):.4f}, Validation Loss: {validation_loss / len(cox_validation_data_loader):.4f} Concordance Index: {concordance.item():.4f}")
 
-    torch.save(tp.state_dict(), "time_predictor.pth")
-    artifact = wandb.Artifact("time_predictor", type="model")
-    artifact.add_file("time_predictor.pth")
+    pbar.close()
+    torch.save(cox.state_dict(), "cox_model.pth")
+    artifact = wandb.Artifact("cox_model", type="model")
+    artifact.add_file("cox_model.pth")
     run.log_artifact(artifact)
-    # run.finish()
 
 except Exception as e:
     if 'logger' in locals():
         logger.error(f"An error occurred: {e}", exc_info=True)
     else:        
         print(f"An error occurred: {e}")
+    if 'pbar' in locals():
+        pbar.close()
 finally:
     if 'run' in locals():
         run.finish()
