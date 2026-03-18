@@ -158,11 +158,11 @@ try:
 
     cpc_optimizer = optim.AdamW(cpc.parameters(), lr=config["cpc_lr"], weight_decay=1e-2)
     scheduler = optim.lr_scheduler.CosineAnnealingLR(cpc_optimizer, T_max=cpc_epochs, eta_min=config["cpc_lr"]*0.1)
-    cpc.train()
     total_loader_size = len(train_data_loader)
     pbar = tqdm(total=cpc_epochs, desc="Training CPC Model")
 
     for cpc_epoch in range(cpc_epochs):
+        cpc.train() 
         total_samples = 0
         total_loss = 0
         total_accuracy = 0
@@ -183,6 +183,7 @@ try:
         context_list = []
         label_list = []
         total_validation_samples = 0
+        cpc.eval()
         for rr,label,_ in validation_data_loader:
             rr = rr.to(device, non_blocking=True)
             label_list.extend(label.cpu().numpy().tolist())
@@ -324,6 +325,8 @@ try:
 
     pbar = tqdm(total=cox_epochs, desc="Training Cox Model")
     for cox_epoch in range(cox_epochs):
+        cox.train()
+        cpc.train()
         total_loss = 0
         validation_loss = 0
         train_risk = []
@@ -368,7 +371,8 @@ try:
         val_risk = []
         val_time = []
         val_event = []
-          
+        cox.eval()
+        cpc.eval()
         for rr,label,time,event in cox_validation_data_loader:
 
             rr = rr.to(device, non_blocking=True)
