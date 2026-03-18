@@ -74,21 +74,10 @@ def load_rr_data(patient_data: dict,dataset_path:str,afib_length:int,sr_length:i
     return rr_data_combined, afib_start_index
 
 
-def find_time_to_event(segments: list, stride: int):
-    time_so_far = 0
-    event_times = []
-    event_times.append(time_so_far)
-    for segment in reversed(segments[:-1]):
-        time_of_window = sum(segment.flatten()[:stride])
-        time_so_far += time_of_window
-        event_times.append(time_so_far)
-    return event_times[::-1]
-
 def segment_rr_data(rr_data: np.ndarray, afib_start_index: int,segment_size:int, stride:int, window_size:int):
     segments = []
     labels = []
     times = []
-    is_time_calculated = False
     total_length = len(rr_data)
     for start in range(0, total_length - segment_size + 1, stride):
         end = start + segment_size
@@ -103,13 +92,16 @@ def segment_rr_data(rr_data: np.ndarray, afib_start_index: int,segment_size:int,
             label = 1 # Segment is entirely within AFIB
         segments.append(segment)
         labels.append(label)
-        if is_time_calculated:
-            times.append(0) # For segments after AFIB start, time to event is 0
-        elif end >= afib_start_index and not is_time_calculated:
-            time_to_event = find_time_to_event(segments, stride)
-            times.extend(time_to_event)
-            is_time_calculated = True
-    print(f"Length of segments: {len(segments)}, Length of labels: {len(labels)}, Length of times: {len(times)} max time to event seconds: {max(times)/1000:.2f}")
+        if end <= afib_start_index:
+            # time remaining until AF onset, measured from the END of this segment
+            times.append(float(np.sum(rr_data[end:afib_start_index])))
+        else:
+            # segment touches or is after AF onset
+            times.append(0.0)
+    print(
+        f"Length of segments: {len(segments)}, Length of labels: {len(labels)}, "
+        f"Length of times: {len(times)} max time to event seconds: {max(times)/1000:.2f}"
+    )
     return np.array(segments), np.array(labels), np.array(times)
 
 
