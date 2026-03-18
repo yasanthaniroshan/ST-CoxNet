@@ -39,7 +39,7 @@ class CPCCoxDataset(Dataset):
             data = data[mask]
             labels = labels[mask]
             times = times[mask]
-            events = (times >=0).astype(int)
+            events = (times > 0).astype(int)
             
             self.data = torch.tensor(data, dtype=torch.float32)
             self.labels = torch.tensor(labels, dtype=torch.long)
