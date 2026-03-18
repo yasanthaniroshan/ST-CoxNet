@@ -201,10 +201,12 @@ try:
             cpc_optimizer.zero_grad()
             loss, accuracy, embeddings, context = cpc(rr)
             tc_loss = time_contrastive_loss(context[:, -1, :], time)
-            total_loss += loss.item() + lamda * tc_loss.item()
+            # total_loss += loss.item() + lamda * tc_loss.item()
+            total_loss +=  tc_loss.item() # Removed contrastive loss given from the original loss function
             total_accuracy += accuracy*rr.size(0)
             total_samples += rr.size(0)
-            (loss + lamda * tc_loss).backward()
+            # (loss + lamda * tc_loss).backward()
+            (tc_loss).backward() # Backpropagate only the time aware contrastive loss
             cpc_optimizer.step()
         scheduler.step()
         embeddings_list = []
@@ -219,7 +221,8 @@ try:
             with torch.no_grad():
                 loss, accuracy, embeddings, context = cpc(rr)
                 tc_loss = time_contrastive_loss(context[:, -1, :], time)
-                validation_loss += loss.item() + lamda * tc_loss.item()
+                # validation_loss += loss.item() + lamda * tc_loss.item()
+                validation_loss += tc_loss.item()
                 validation_accuracy += accuracy*rr.size(0)
                 total_validation_samples += rr.size(0)
                 embeddings_list.append(embeddings.cpu().numpy())
