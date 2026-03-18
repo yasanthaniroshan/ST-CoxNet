@@ -8,6 +8,7 @@ class CoxHead(nn.Module):
     def __init__(self, context_dim:int,latent_dim:int,dropout:float=0.2):
         super().__init__()
         input_dim = context_dim + latent_dim
+        self.atten = nn.Linear(context_dim, 1)
         self.context_norm = nn.LayerNorm(context_dim)
         self.latent_norm = nn.LayerNorm(latent_dim)
         self.net = nn.Sequential(
@@ -25,7 +26,9 @@ class CoxHead(nn.Module):
         self._init_weight()
 
     def forward(self, c, z):
-        context = self.context_norm(c)
+        weights = torch.softmax(self.atten(c), dim=1)
+        pooled_context = torch.sum(c * weights, dim=1)
+        context = self.context_norm(pooled_context)
         latent = self.latent_norm(z)
         combined = torch.cat([context, latent], dim=1)
         return self.net(combined)

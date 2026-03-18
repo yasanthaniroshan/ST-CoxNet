@@ -341,7 +341,7 @@ try:
             # with torch.no_grad():
             _,_, embeddings, context = cpc(rr)
 
-            logits = cox(context[:, -1, :],embeddings[:,-1,:])
+            logits = cox(context,embeddings[:,-1,:])
             loss = loss_fn(logits, time, event)
 
             total_loss += loss.item()
@@ -380,7 +380,7 @@ try:
 
             with torch.no_grad():
                 _,_, embeddings, context = cpc(rr)
-                logits = cox(context[:, -1, :],embeddings[:,-1,:])
+                logits = cox(context,embeddings[:,-1,:])
 
                 loss = loss_fn(logits, time, event)
                 validation_loss += loss.item()
