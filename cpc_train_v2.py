@@ -5,6 +5,7 @@ from Loss.DeepSurvLoss import ImprovedDeepSurvLoss as DeepSurvLoss
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torch.nn.functional as F
 import numpy as np
 from Utils.Dataset.CPCDataset import CPCDataset
 from Utils.Dataset.CPCCoxDataset import CPCCoxDataset
@@ -53,6 +54,29 @@ def predict_median_survival(risk, times, baseline_cumhaz):
     return times[idx[0]]
 
 
+def time_contrastive_loss(context, time, tau=0.5):
+    """
+    context: [B, D]  (use c_last, not full sequence)
+    time:    [B]
+    """
+    # normalize embeddings
+    z = F.normalize(context, dim=-1)
+
+    # similarity matrix (cosine similarity)
+    sim = torch.matmul(z, z.T)   # [B, B]
+
+    # time difference
+    t_i = time.unsqueeze(0)
+    t_j = time.unsqueeze(1)
+    time_diff = torch.abs(t_i - t_j)
+
+    # convert to similarity target
+    target_sim = torch.exp(-time_diff / tau)
+
+    # MSE between embedding sim and time sim
+    loss = (sim - target_sim).pow(2).mean()
+    return loss
+
 try:
     console = logging.StreamHandler()
     console.setLevel(logging.INFO)
@@ -75,7 +99,8 @@ try:
         "number_of_prediction_steps": 6,
         "batch_size": 512,
         "cpc_lr": 1e-3,
-        "cox_lr": 1e-3
+        "cox_lr": 1e-3,
+        "time_contrastive_weight": 0.5
     }
     run = wandb.init(
         entity="eml-labs",
@@ -96,6 +121,7 @@ try:
     cpc_epochs = config["cpc_epochs"]
     cox_epochs = config["cox_epochs"]
     processed_dataset_path = "//home/intellisense01/EML-Labs/ST-CoxNet/processed_datasets"
+    lamda = config["time_contrastive_weight"]
 
     train_dataset = CPCDataset(
         processed_dataset_path=processed_dataset_path,
@@ -158,7 +184,6 @@ try:
 
     cpc_optimizer = optim.AdamW(cpc.parameters(), lr=config["cpc_lr"], weight_decay=1e-2)
     scheduler = optim.lr_scheduler.CosineAnnealingLR(cpc_optimizer, T_max=cpc_epochs, eta_min=config["cpc_lr"]*0.1)
-    cpc.train()
     total_loader_size = len(train_data_loader)
     pbar = tqdm(total=cpc_epochs, desc="Training CPC Model")
 
@@ -168,27 +193,33 @@ try:
         total_accuracy = 0
         validation_loss = 0
         validation_accuracy = 0
-        for rr,label,_ in train_data_loader:
+        cpc.train()
+        for rr,label,time in train_data_loader:
             rr = rr.to(device, non_blocking=True)
             label = label.to(device, non_blocking=True)
+            time = time.to(device, non_blocking=True)
             cpc_optimizer.zero_grad()
-            loss, accuracy, _,_ = cpc(rr)
-            total_loss += loss.item()
+            loss, accuracy, embeddings, context = cpc(rr)
+            tc_loss = time_contrastive_loss(context[:, -1, :], time)
+            total_loss += loss.item() + lamda * tc_loss.item()
             total_accuracy += accuracy*rr.size(0)
             total_samples += rr.size(0)
-            loss.backward()
+            (loss + lamda * tc_loss).backward()
             cpc_optimizer.step()
         scheduler.step()
         embeddings_list = []
         context_list = []
         label_list = []
         total_validation_samples = 0
-        for rr,label,_ in validation_data_loader:
+        cpc.eval()
+        for rr,label,time in validation_data_loader:
             rr = rr.to(device, non_blocking=True)
             label_list.extend(label.cpu().numpy().tolist())
+            time = time.to(device, non_blocking=True)
             with torch.no_grad():
                 loss, accuracy, embeddings, context = cpc(rr)
-                validation_loss += loss.item()
+                tc_loss = time_contrastive_loss(context[:, -1, :], time)
+                validation_loss += loss.item() + lamda * tc_loss.item()
                 validation_accuracy += accuracy*rr.size(0)
                 total_validation_samples += rr.size(0)
                 embeddings_list.append(embeddings.cpu().numpy())
@@ -329,6 +360,8 @@ try:
         train_risk = []
         train_time = []
         train_event = []  
+        cpc.train()
+        cox.train()
         for rr,label,time,event in cox_train_data_loader:
 
             rr = rr.to(device, non_blocking=True)
@@ -368,7 +401,8 @@ try:
         val_risk = []
         val_time = []
         val_event = []
-          
+        cpc.eval()
+        cox.eval()
         for rr,label,time,event in cox_validation_data_loader:
 
             rr = rr.to(device, non_blocking=True)
