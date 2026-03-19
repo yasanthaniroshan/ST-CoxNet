@@ -1,0 +1,12 @@
+{
+  "experiment": "v21_probeA_seen_vs_unseen_from_ckpt_f",
+  "ckpt_path": "/home/intellisense01/EML-Labs/ST-CoxNet/v21f_best.pth",
+  "n_excellent_patients": 56,
+  "n_seen_patients_for_probe": 44,
+  "n_unseen_patients_for_probe": 12,
+  "seen_cls_random_baseline": 0.022727272727272728,
+  "best_seen_classification_acc": 0.09872029250457039,
+  "unseen_detection_auroc": 0.4270510543216599,
+  "unseen_detection_best_threshold": -0.17363739013671875,
+  "unseen_detection_best_binary_acc": 0.6180904522613065
+}

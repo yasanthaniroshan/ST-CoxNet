@@ -1,0 +1,12 @@
+{
+  "experiment": "v17_probe_B_open_set_centroid",
+  "n_excellent_patients": 56,
+  "n_seen_patients_for_probe": 44,
+  "n_unseen_patients_for_probe": 12,
+  "seen_closed_set_accuracy": 0.3583180987202925,
+  "unseen_detection_auroc": 0.5200924017097341,
+  "threshold_95pct_seen": 12.956642150878906,
+  "threshold_95_binary_acc": 0.38837042354630297,
+  "threshold_95_tpr_unseen": 0.026004728132387706,
+  "threshold_95_fpr_seen": 0.051188299817184646
+}

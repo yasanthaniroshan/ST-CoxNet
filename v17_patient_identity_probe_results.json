@@ -1,0 +1,12 @@
+{
+  "n_classes": 56,
+  "random_baseline": 0.017857142857142856,
+  "best_probe_val_accuracy": 0.7448789477348328,
+  "val_emb_shape": [
+    537,
+    128
+  ],
+  "seed": 42,
+  "excellent_patients_used": 56,
+  "note": "Segment-level split; probe accuracy reflects patient identity encoding, not strict generalization."
+}

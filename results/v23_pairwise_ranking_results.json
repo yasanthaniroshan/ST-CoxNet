@@ -1,0 +1,12 @@
+{
+  "experiment": "v23_pairwise_ranking_relative_rr",
+  "tier": "excellent",
+  "train_patients": 47,
+  "val_patients": 9,
+  "P": 8,
+  "K": 10,
+  "relative_rr": true,
+  "best_val_spearman_score_vs_neg_tte": 0.1873626327786579,
+  "pair_sampling_within_patient": true,
+  "pair_def": "positive if TTE_i < TTE_j"
+}

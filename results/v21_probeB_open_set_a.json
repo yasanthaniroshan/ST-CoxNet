@@ -1,0 +1,13 @@
+{
+  "experiment": "v21_probeB_open_set_centroid_from_ckpt_a",
+  "ckpt_path": "/home/intellisense01/EML-Labs/ST-CoxNet/v21a_best.pth",
+  "n_excellent_patients": 56,
+  "n_seen_patients_for_probe": 44,
+  "n_unseen_patients_for_probe": 12,
+  "seen_closed_set_accuracy": 0.2413162705667276,
+  "unseen_detection_auroc": 0.4638561506778862,
+  "threshold_95pct_seen": 6.323152542114258,
+  "threshold_95_binary_acc": 0.45369705671213206,
+  "threshold_95_tpr_unseen": 0.13356973995271867,
+  "threshold_95_fpr_seen": 0.051188299817184646
+}

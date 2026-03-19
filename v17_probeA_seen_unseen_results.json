@@ -1,0 +1,12 @@
+{
+  "experiment": "v17_probe_A_seen_vs_unseen",
+  "n_excellent_patients": 56,
+  "n_seen_patients_for_probe": 44,
+  "n_unseen_patients_for_probe": 12,
+  "seen_cls_random_baseline": 0.022727272727272728,
+  "best_seen_classification_acc": 0.6672760511882998,
+  "unseen_detection_auroc": 0.5727955190789218,
+  "unseen_detection_best_threshold": -0.9179043173789978,
+  "unseen_detection_best_binary_acc": 0.6166547020818378,
+  "note": "High seen-cls acc and high unseen-detection AUROC imply strong patient-specific encoding."
+}
