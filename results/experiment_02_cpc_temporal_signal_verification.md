@@ -1,0 +1,212 @@
+# Experiment 02 — Verify CPC Temporal Signal vs Raw HRV
+
+**Source script:** `cpc_temporal_signal_analysis.py`  
+**Checkpoint:** `cpc_model.pth`  
+**Outputs folder:** `plots/cpc_temporal_signal/`
+
+## Experimental goal
+Test whether learned CPC representations capture more temporal signal (with respect to **time-to-AFib onset**) than simple HRV statistics suggest—while accounting for **patient dependency** via within-patient analysis and patient-level splits.
+
+## Key results (highlights)
+
+### Within-patient Spearman temporal monotonicity (feature dim vs time-to-event)
+Patients analyzed: **79** (SR segments); within-patient Spearman computed with subsampling (every **25** segments).
+
+Best HRV vs CPC:
+- **HRV best:** `pNN50` — median |ρ| **0.5579**, mean |ρ| **0.4333**
+- **CPC encoder (z) best:** `z_51` — median |ρ| **0.2703**, mean |ρ| **0.1946**
+- **CPC context (c) best:** `c_102` — median |ρ| **0.3818**, mean |ρ| **0.2613**
+
+Comparison across dimensions:
+- Encoder z dims beating best HRV: **0 / 64**
+- Context c dims beating best HRV: **0 / 128**
+
+### Linear probe performance (patient-level GroupKFold; Ridge regression)
+Target: time-to-event (seconds), SR segments only.
+
+- HRV (9 features): **R² = 0.0035 ± 0.0123**
+- z_last (64d): **R² = -0.0030 ± 0.0025**
+- c_last (128d): **R² = -0.0181 ± 0.0164**
+- z+c (192d): **R² = -0.0197 ± 0.0165**
+
+### Patient-level concordance index (C-index)
+Computed on 5000 subsampled SR segments with patient-level splits:
+- HRV: **0.5200 ± 0.0213**
+- z+c: **0.5022 ± 0.0208**
+
+## Conclusion / verdict
+**CPC representations do NOT outperform raw HRV statistics for temporal signal** on this run/checkpoint.
+
+Likely causes suggested by the experiment:
+- insufficient CPC pre-training
+- suboptimal architecture for learning temporal monotonicity under this objective
+- the dataset’s temporal signal may already be largely captured by hand-crafted HRV features
+
+## Generated plots
+- `plots/cpc_temporal_signal/01_spearman_comparison.png`
+- `plots/cpc_temporal_signal/02_linear_probe_comparison.png`
+- `plots/cpc_temporal_signal/03_pca_by_tte.png`
+- `plots/cpc_temporal_signal/04_rho_distributions.png`
+- `plots/cpc_temporal_signal/05_dimension_comparison.png`
+
+## Full report export
+
+```text
+================================================================================
+  CPC TEMPORAL SIGNAL VERIFICATION
+  Generated: 2026-03-19 10:18:09
+================================================================================
+
+Device       : cpu
+Checkpoint   : /home/intellisense01/EML-Labs/ST-CoxNet/cpc_model.pth
+
+────────────────────────────────────────────────────────────────────────────────
+SECTION 1: DATA LOADING & SEGMENTATION
+────────────────────────────────────────────────────────────────────────────────
+
+  Total segments: 73,164  |  SR segments: 32,727
+  Unique patients (SR): 102
+
+────────────────────────────────────────────────────────────────────────────────
+SECTION 2: CPC MODEL — LOAD & EXTRACT EMBEDDINGS
+────────────────────────────────────────────────────────────────────────────────
+
+  Loaded CPC checkpoint (154,816 parameters)
+  z_last shape: (32727, 64)  (encoder embeddings, last timestep)
+  c_last shape: (32727, 128)  (GRU context, last timestep)
+  combined shape: (32727, 192)
+
+────────────────────────────────────────────────────────────────────────────────
+SECTION 3: HRV BASELINE FEATURES
+────────────────────────────────────────────────────────────────────────────────
+
+  HRV feature matrix: (32727, 9)  (32727 valid rows)
+  Features: MeanNN, SDNN, RMSSD, pNN50, pNN20, CVNN, MedianNN, IQRNN, MeanHR
+
+────────────────────────────────────────────────────────────────────────────────
+SECTION 4: WITHIN-PATIENT SPEARMAN ρ — CPC vs HRV
+────────────────────────────────────────────────────────────────────────────────
+
+  Computing within-patient Spearman for CPC embeddings...
+  Computing within-patient Spearman for HRV features...
+
+  Patients analysed: 79 (CPC), 79 (HRV)
+  Sub-sampling step: every 25 segments
+
+  ── HRV Features (baseline) ──
+  Feature        |ρ| median    % sig
+  ──────────── ──────────── ────────
+  MeanNN             0.4242    34.2%
+  SDNN               0.4618    34.2%
+  RMSSD              0.3818    39.2%
+  pNN50              0.5579    54.4%
+  pNN20              0.4636    43.0%
+  CVNN               0.4368    44.3%
+  MedianNN           0.4000    38.0%
+  IQRNN              0.3491    29.1%
+  MeanHR             0.4242    34.2%
+  BEST HRV: pNN50 |ρ|=0.5579
+  MEAN HRV |ρ|: 0.4333
+
+  ── CPC Encoder (z) — Top 10 dims ──
+  Dim        |ρ| median    % sig
+  ──────── ──────────── ────────
+  z_51           0.2703    15.2%
+  z_54           0.2672     8.9%
+  z_42           0.2570    11.4%
+  z_50           0.2527     7.6%
+  z_37           0.2384    10.1%
+  z_25           0.2283     2.5%
+  z_17           0.2264     6.3%
+  z_23           0.2242     8.9%
+  z_18           0.2157     6.3%
+  z_58           0.2132     8.9%
+  BEST z: z_51 |ρ|=0.2703  |  MEAN z |ρ|: 0.1946
+
+  ── CPC Context (c) — Top 10 dims ──
+  Dim        |ρ| median    % sig
+  ──────── ──────────── ────────
+  c_102          0.3818    24.1%
+  c_122          0.3701    22.8%
+  c_45           0.3697    29.1%
+  c_16           0.3636    25.3%
+  c_43           0.3576    24.1%
+  c_81           0.3576    17.7%
+  c_65           0.3574    31.6%
+  c_11           0.3441    20.3%
+  c_2            0.3407    27.8%
+  c_49           0.3260    22.8%
+  BEST c: c_102 |ρ|=0.3818  |  MEAN c |ρ|: 0.2613
+
+────────────────────────────────────────────────────────────────────────────────
+SECTION 5: LINEAR PROBE R² — CPC vs HRV → TIME-TO-EVENT
+────────────────────────────────────────────────────────────────────────────────
+
+  Patient-level GroupKFold (k=5) — Ridge regression
+  Target: time-to-event (seconds), 32,721 valid SR segments
+
+  Representation            R² mean±std    Spearman ρ mean±std
+  ──────────────────── ──────────────── ──────────────────────
+  HRV (9 feats)         0.0035±0.0123      0.0805±0.0435
+  z_last (64d)         -0.0030±0.0025      0.0079±0.0185
+  c_last (128d)        -0.0181±0.0164      0.0426±0.0382
+  z+c (192d)           -0.0197±0.0165      0.0410±0.0369
+
+────────────────────────────────────────────────────────────────────────────────
+SECTION 6: PATIENT-LEVEL CONCORDANCE INDEX
+────────────────────────────────────────────────────────────────────────────────
+
+  C-index computed on 5000 subsampled SR segments (patient-level splits)
+
+  Representation           C-index mean±std
+  ──────────────────── ────────────────
+  HRV (9 feats)           0.5200±0.0213
+  z+c (192d)              0.5022±0.0208
+
+────────────────────────────────────────────────────────────────────────────────
+SECTION 7: VISUALISATIONS
+────────────────────────────────────────────────────────────────────────────────
+
+  [saved] /home/intellisense01/EML-Labs/ST-CoxNet/plots/cpc_temporal_signal/01_spearman_comparison.png
+  [saved] /home/intellisense01/EML-Labs/ST-CoxNet/plots/cpc_temporal_signal/02_linear_probe_comparison.png
+  [saved] /home/intellisense01/EML-Labs/ST-CoxNet/plots/cpc_temporal_signal/03_pca_by_tte.png
+  [saved] /home/intellisense01/EML-Labs/ST-CoxNet/plots/cpc_temporal_signal/04_rho_distributions.png
+  [saved] /home/intellisense01/EML-Labs/ST-CoxNet/plots/cpc_temporal_signal/05_dimension_comparison.png
+
+════════════════════════════════════════════════════════════════════════════════
+SUMMARY — CPC vs HRV TEMPORAL SIGNAL
+════════════════════════════════════════════════════════════════════════════════
+
+  WITHIN-PATIENT SPEARMAN ρ (temporal monotonicity):
+    HRV best   : pNN50 |ρ|=0.5579     mean |ρ|=0.4333
+    CPC z best : z_51 |ρ|=0.2703        mean |ρ|=0.1946
+    CPC c best : c_102 |ρ|=0.3818        mean |ρ|=0.2613
+    z dims > best HRV : 0 / 64
+    c dims > best HRV : 0 / 128
+
+  LINEAR PROBE R² (Ridge, patient-level GroupKFold):
+    HRV    : 0.0035
+    z+c    : -0.0197
+    Δ R²   : -0.0232  (HRV better)
+
+  CONCORDANCE INDEX (patient-level splits):
+    HRV    : 0.5200
+    z+c    : 0.5022
+    Δ C    : -0.0178  (HRV better)
+
+  VERDICT:
+    CPC representations do NOT outperform raw HRV stats on this dataset.
+    Possible causes: insufficient CPC pre-training, suboptimal architecture,
+    or the temporal signal is simple enough for hand-crafted HRV features.
+
+  RECOMMENDATIONS:
+    1. Consider more CPC pre-training epochs or architecture changes
+    2. Context vectors (c) capture sequential dynamics well — use c_last as primary features
+    3. Combine CPC + HRV features for best performance
+    4. Always use patient-level train/val/test splits
+
+================================================================================
+  All plots saved to: /home/intellisense01/EML-Labs/ST-CoxNet/plots/cpc_temporal_signal
+================================================================================
+```
+
