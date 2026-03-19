@@ -1,50 +1,46 @@
-
-from torch import nn
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
-from Model.SEBlock import SEBlock
-from Model.ResNet import ResNetBlock1D
 
 class Encoder(nn.Module):
-    def __init__(self, latent_dim:int,dropout:float=0.1):
+    def __init__(self, latent_dim:int,window_size:int,dropout:float=0.1):
         super().__init__()
-        self.branch1 = nn.Sequential(
-            ResNetBlock1D(1, 16, kernel_size=3),
-            nn.Dropout(dropout)
-        )
-        self.branch2 = nn.Sequential(
-            ResNetBlock1D(1, 16, kernel_size=5),
-            nn.Dropout(dropout)
-        )
-
-        self.branch3 = nn.Sequential(
-            ResNetBlock1D(1, 16, kernel_size=7),
-            nn.Dropout(dropout)
-        )
-        self.se = SEBlock(16*3)
-
-        self.proj = nn.Sequential(
-            nn.Linear(16*3, 32),
-            nn.BatchNorm1d(32),
+        # Convolutional feature extractor for a single RR window [B, 1, window_size]
+        self.feature_extractor = nn.Sequential(
+            nn.Conv1d(1, 8, kernel_size=11, padding=5,stride=2), # [B, 1, window_size] -> [B, 8, window_size/2]
+            nn.GroupNorm(2,8),
             nn.ReLU(),
             nn.Dropout(dropout),
-            nn.Linear(32, latent_dim),
+            nn.Conv1d(8, 16, kernel_size=9, padding=5,stride=2), # [B, 8, window_size/2] -> [B, 16, window_size/4]
+            nn.GroupNorm(4,16),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Conv1d(16, 32, kernel_size=5, padding=2,stride=2), # [B, 16, window_size/4] -> [B, 32, window_size/8]
+            nn.GroupNorm(8,32),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+        )
+
+        # Infer exact flattened size from the real conv stack.
+        # Using window_size//8 is wrong here because stride/padding rounds up.
+        with torch.no_grad():
+            dummy = torch.zeros(1, 1, window_size)
+            flat_dim = self.feature_extractor(dummy).flatten(1).shape[1]
+
+        self.projection = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(flat_dim, latent_dim),
+            nn.ReLU(),
+            nn.Dropout(dropout),
             nn.LayerNorm(latent_dim)
-            )
+        )
 
-
-    def forward(self, rr_window)->torch.Tensor:
+    def forward(self, x):
         """
-        rr_window: [B, window_size]
-        output:    [B, LATENT_SIZE]
+        x: [B, 1, window_size]
+        output: [B, latent_dim]
         """
-        x = rr_window.unsqueeze(1)
-        x1 = self.branch1(x)  # [B, 32, L]
-        x2 = self.branch2(x)  # [B, 32, L]
-        x3 = self.branch3(x)  # [B, 32, L]
-        x_cat = torch.cat([x1, x2, x3], dim=1)  # [B, 96, L]
-        f_atten = self.se(x_cat)  # [B, 96, L]
-        h = F.adaptive_avg_pool1d(f_atten, 1).squeeze(-1)  # [B, 96]
-        z = self.proj(h)
+        x = x.unsqueeze(1)  # [B, 1, window_size]
+        x = self.feature_extractor(x)
+        z = self.projection(x)     # [B, latent_dim]
         return z
-
