@@ -1,0 +1,21 @@
+{
+  "experiment": "v25_two_stage_grl_cross_patient_contrastive_then_regression",
+  "n_excellent_patients": 56,
+  "n_train_patients": 47,
+  "n_val_patients": 9,
+  "n_train_segments": 2866,
+  "n_val_segments": 713,
+  "relative_rr": true,
+  "stage1_epochs": 80,
+  "stage2_epochs": 120,
+  "lambda_adv_max": 1.0,
+  "lambda_contrast": 0.5,
+  "contrastive_temperature": 0.1,
+  "contrastive_sigma_tte": 10.0,
+  "final_global_mae": 19.078969955444336,
+  "final_global_rho": 0.1990893919696564,
+  "final_global_r2": -0.08173024654388428,
+  "final_pp_rho": 0.15783125423843192,
+  "centroid_seen_acc": 0.13189113747383113,
+  "centroid_unseen_auroc": 0.48508679894570866
+}

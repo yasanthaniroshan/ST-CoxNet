@@ -1,0 +1,16 @@
+{
+  "experiment": "v24_grl_cross_patient_contrastive",
+  "n_excellent_patients": 56,
+  "n_train_patients": 47,
+  "n_val_patients": 9,
+  "n_train_segments": 2866,
+  "n_val_segments": 713,
+  "relative_rr": true,
+  "lambda_adv_max": 1.0,
+  "lambda_contrast": 0.5,
+  "contrastive_temperature": 0.1,
+  "contrastive_sigma_tte": 10.0,
+  "best_val_mae": 18.43528175354004,
+  "final_global_mae": 18.43528175354004,
+  "final_global_rho": 0.23983682856504562,
+  "final_global_r2": 
