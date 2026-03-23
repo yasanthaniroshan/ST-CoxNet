@@ -1,0 +1,14 @@
+{
+  "n_episodes": 388,
+  "horizons_min": [
+    10,
+    20,
+    30,
+    60,
+    120,
+    180
+  ],
+  "rows": 2328,
+  "overall_ml_ready_pct": 55.79896907216495,
+  "output_dir": "/home/intellisense01/EML-Labs/ST-CoxNet/dataset_experiments/Results/pre_afib_episode_analysis"
+}

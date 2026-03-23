@@ -1,0 +1,38 @@
+[
+  {
+    "metric": "is_sufficient_duration",
+    "definition": "Segment contains at least 95% of requested pre-AFib horizon duration.",
+    "threshold_for_ml": "True",
+    "reason": "Insufficient context increases label noise and feature instability."
+  },
+  {
+    "metric": "rr_count",
+    "definition": "Number of RR intervals in segment.",
+    "threshold_for_ml": ">= 200",
+    "reason": "Low counts produce weak HRV and distribution estimates."
+  },
+  {
+    "metric": "outlier_count_total_phys / outlier_pct_phys",
+    "definition": "RR values outside [250, 2500] ms.",
+    "threshold_for_ml": "<= 5%",
+    "reason": "High outlier rate indicates artifact or poor signal quality."
+  },
+  {
+    "metric": "duplicate_pct",
+    "definition": "Fraction of consecutive RR differences equal to zero.",
+    "threshold_for_ml": "<= 10%",
+    "reason": "Excess duplicates can indicate quantization or sensor artifacts."
+  },
+  {
+    "metric": "std_rr_ms",
+    "definition": "RR standard deviation.",
+    "threshold_for_ml": "10-400 ms (soft range)",
+    "reason": "Near-zero or extreme variability can be non-physiologic."
+  },
+  {
+    "metric": "quality_score",
+    "definition": "Composite score from coverage, count, outliers, duplicates and variability.",
+    "threshold_for_ml": ">= 70",
+    "reason": "Single summary metric for model-ready segment filtering."
+  }
+]

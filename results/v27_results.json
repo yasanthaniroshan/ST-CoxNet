@@ -1,0 +1,19 @@
+{
+  "experiment": "v27_film_conditional_attention_context_relative_rr",
+  "tier": "excellent",
+  "support_k": 5,
+  "query_k": 3,
+  "batch_patients": 8,
+  "episodes_per_epoch": 150,
+  "relative_rr": true,
+  "temperature": 0.1,
+  "best_val_mae": 17.625137329101562,
+  "final_global_mae": 17.625137329101562,
+  "final_global_rho": 0.22968671943397817,
+  "final_global_r2": 0.006975054740905762,
+  "final_global_pp_rho_mean": 0.11569710641124813,
+  "centroid_seen_acc": 0.11828332170272156,
+  "centroid_unseen_auroc": 0.51836519272723,
+  "n_train_patients": 47,
+  "n_val_patients": 9
+}

@@ -1,0 +1,18 @@
+{
+  "n_episodes": 388,
+  "rows": 6984,
+  "segment_types": [
+    "pre_afib",
+    "afib",
+    "both"
+  ],
+  "horizons_min": [
+    10,
+    20,
+    30,
+    60,
+    120,
+    180
+  ],
+  "output_dir": "/home/intellisense01/EML-Labs/ST-CoxNet/dataset_experiments/Results/pre_afib_afib_combined_analysis"
+}

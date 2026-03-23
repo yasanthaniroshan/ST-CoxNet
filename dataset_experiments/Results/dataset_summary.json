@@ -1,0 +1,9 @@
+{
+  "n_patients": 167,
+  "total_af_episodes": 388,
+  "total_rr_intervals": 31149278,
+  "total_recording_hours": 6690.49,
+  "total_af_hours": 1.61,
+  "mean_hr_bpm": 78.46,
+  "mean_af_burden_pct": 0.02
+}

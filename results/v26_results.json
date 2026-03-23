@@ -1,0 +1,18 @@
+{
+  "experiment": "v26_film_conditional_patient_context_mean_relative_rr",
+  "tier": "excellent",
+  "support_k": 5,
+  "query_k": 3,
+  "batch_patients": 8,
+  "episodes_per_epoch": 150,
+  "relative_rr": true,
+  "best_val_mae": 18.032869338989258,
+  "final_global_mae": 18.032869338989258,
+  "final_global_rho": 0.2123604962643138,
+  "final_global_r2": -0.014699578285217285,
+  "final_global_pp_rho_mean": 0.12930183353934022,
+  "centroid_seen_acc": 0.16643405443126308,
+  "centroid_unseen_auroc": 0.5804516168181582,
+  "n_train_patients": 47,
+  "n_val_patients": 9
+}
